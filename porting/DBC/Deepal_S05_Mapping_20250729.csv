@@ -1,0 +1,133 @@
+Section,Direction,Category,BrownPanda_Message_ID,BrownPanda_Message_Name,BrownPanda_Signal,BP_Scale,BP_Offset,BP_Min,BP_Max,DEEPAL_Message_ID,DEEPAL_Message_Name,DEEPAL_Signal,DEEPAL_Scale,DEEPAL_Offset,DEEPAL_Min,DEEPAL_Max,Conversion_Formula,Data_Type,Unit_BP,Unit_DEEPAL,Frequency_Hz,Bus,Priority,Safety_Critical,Notes,
+PANDA DEVICE INFO,SEND,Device_Info,96,pandaMessage,carBrand,1,0,0,255,,,,,,,,,,,,,,,,,Car brand (bit 0|8@1+)
+PANDA DEVICE INFO,SEND,Device_Info,96,pandaMessage,carModel,1,0,0,255,,,,,,,,,,,,,,,,,Car model (bit 8|8@1+)
+PANDA DEVICE INFO,SEND,Device_Info,96,pandaMessage,carYear,1,0,0,4095,,,,,,,,,,,,,,,,,Car year (bit 16|12@1+)
+PANDA DEVICE INFO,SEND,Device_Info,96,pandaMessage,pandaMode,1,0,0,3,,,,,,,,,,,,,,,,,Panda mode (bit 28|2@1+)
+PANDA DEVICE INFO,SEND,Device_Info,96,pandaMessage,battVoltage,0.01,0,0,40.95,,,,,,,,,,,,,,,,,Battery voltage (bit 32|12@1+)
+USER INPUT MAPPING,RECEIVE,Pedal_Input,97,userCommand,brkPedal,0.4,0,0,102,,,,,,,,,,,,,,,,,Brake pedal (bit 0|8@1+)
+USER INPUT MAPPING,RECEIVE,Pedal_Input,97,userCommand,accPedal,0.4,0,0,102,381,GW_17D,PCU_AccPedl,0.392,0,0,99.96,BP = DEEPAL * 1.02,float,%,%,10,0,HIGH,YES,Accelerator pedal (bit 8|8@1+)
+CORE VEHICLE STATE,RECEIVE,Steering,97,userCommand,steerAngle,0.1,0,-780,780,384,GW_180,SAS_SteeringAngle,0.1,0,-780,780,BP = DEEPAL * 1.0,float,deg,deg,100,0,HIGH,YES,Steering angle (bit 16|16@1+)
+CORE VEHICLE STATE,RECEIVE,Vehicle_Dynamics,97,userCommand,yawRate,0.01,-81.91,-81.91,81.91,349,GW_15D,ESP_YawRate,0.01,-81.91,-81.91,81.91,BP = DEEPAL * 1.0,float,deg/s,deg/s,50,0,MEDIUM,NO,Yaw rate (bit 32|14@1+)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnCcEn,1,0,0,1,652,GW_28C,GW_MFS_Crusie_switch_signal,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,50,0,HIGH,YES,Cruise control enable button (bit 46|1@1+) | Additional: HU_VC_CruiseControl=1287:HU_507 for ACC/IACC Resume
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnLnEn,1,0,0,1,652,GW_28C,GW_MFS_IACCenable_switch_signal,1,0,0,3,BP = (DEEPAL == 2),bool,bool,enum,20,0,HIGH,YES,IACC activation via gear column double push down (bit 47|1@1+)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnGeneric,1,0,0,1,,,,,,,,,,,,,,,,,Generic button (bit 48|1@1+) | ADAS Available: FCW=1287:HU_FCWSetting | AEB=1287:HU_AutoBrakeEnable | TSR=1287:HU_TSRSwitch | HMA=1287:HU_HMAEnable | LAS=1287:HU_LASModeSelection
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnCcSet,1,0,0,1,,,,,,,,,,,,,,,,,Cruise set button (bit 49|1@1+) | Available: HU_VC_CruiseSetSpeed=1287:HU_507
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnCcCancel,1,0,0,1,,,,,,,,,,,,,,,,,Cruise cancel button (bit 50|1@1+) | Available: HU_VC_CruiseControl=1287:HU_507 (Cancel=5)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnCcResume,1,0,0,1,652,GW_28C,GW_MFS_RESPlus_switch_signal,1,0,0,3,BP = (DEEPAL == 2),bool,bool,enum,50,0,HIGH,YES,Resume from standstill via RES+ button double press (bit 51|1@1+)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnSpdUp,1,0,0,1,652,GW_28C,GW_MFS_RESPlus_switch_signal,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,50,0,HIGH,YES,Speed increase button (bit 52|1@1+)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnSpdDn,1,0,0,1,652,GW_28C,GW_MFS_SETReduce_switch_signal,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,50,0,HIGH,YES,Speed decrease button (bit 53|1@1+)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnDistNr,1,0,0,1,652,GW_28C,GW_MFS_DISTReduce_switch_signal,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,20,0,MEDIUM,NO,Distance decrease button (bit 54|1@1+)
+USER INPUT MAPPING,RECEIVE,User_Input,97,userCommand,btnDistFar,1,0,0,1,652,GW_28C,GW_MFS_DISTPlus_switch_signal,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,20,0,MEDIUM,NO,Distance increase button (bit 55|1@1+)
+USER INPUT MAPPING,RECEIVE,Turn_Signals,97,userCommand,btnHazard,1,0,0,1,,,,,,,,,,,,,,,,,Hazard emergency light button (bit 56|1@1+)
+USER INPUT MAPPING,RECEIVE,Turn_Signals,97,userCommand,btnBlinkL,1,0,0,1,651,GW_28B,BCM_TurnIndicatorLeft,2,0,0,3,BP = DEEPAL,uint8,enum,enum,10,0,MEDIUM,NO,Left turn signal button (bit 57|1@1+)
+USER INPUT MAPPING,RECEIVE,Turn_Signals,97,userCommand,btnBlinkR,1,0,0,1,651,GW_28B,BCM_TurnIndicatorRight,2,0,0,3,BP = DEEPAL,uint8,enum,enum,10,0,MEDIUM,NO,Right turn signal button (bit 58|1@1+)
+USER INPUT MAPPING,RECEIVE,Pedal_Status,97,userCommand,actPedalPressed,1,0,0,1,,,,,,,,,,,,,,,,,Pedal pressed status (bit 59|1@1+)
+USER INPUT MAPPING,RECEIVE,Pedal_Status,97,userCommand,actBrakePressed,1,0,0,1,381,GW_17D,PCU_BrkPedlSts,1,0,0,3,BP = (DEEPAL > 0),bool,bool,enum,10,0,HIGH,YES,Brake pressed status (bit 60|1@1+)
+USER INPUT MAPPING,RECEIVE,Pedal_Status,97,userCommand,actSteerPressed,1,0,0,1,,,,,,,,,,,,,,,,,Steering pressed status (bit 61|1@1+) | Driver Attention: handsOffStatus=794:ACC_DriverHandsOffStatus | handsOnRequest=580:ACC_HandsOnReq
+CORE VEHICLE STATE,RECEIVE,Steering,98,carState,steerTorq,0.1,-3276.8,-3276.8,3276.7,368,GW_170,EPS_ActualTorsionBarTorq,0.02,-20.48,-20.48,20.44,BP = DEEPAL * 5.0,float,Nm,Nm,100,0,HIGH,YES,Steering torque (bit 0|16@1+) | Distraction/Drowsiness: 869:IMS_DistractionStatus | 869:IMS_DrowsinessStatus
+CORE VEHICLE STATE,RECEIVE,Brake_System,98,carState,brkPressure,0.1,0,0,25.5,523,GW_20B,ESP_MasCylBrakePressure,0.1,0,0,250,BP = DEEPAL * 1.0,float,bar,Bar,50,0,MEDIUM,NO,Brake pressure - corrected message and signal (bit 16|8@1+)
+CORE VEHICLE STATE,RECEIVE,Vehicle_Speed,98,carState,vehSpd,0.05625,0,0,360,391,GW_187,ESP_VehicleSpeed,0.0562500000,0,0,360,BP = DEEPAL * 1.0,float,km/h,km/h,100,0,HIGH,YES,Vehicle speed (bit 24|13@1+)
+TRANSMISSION CONTROL,RECEIVE,Transmission,98,carState,gearPos,1,0,0,3,,,,,,,,,,,,,,,,,Gear position (bit 37|3@1+)
+CORE VEHICLE STATE,RECEIVE,Safety_Systems,98,carState,adasSettings,1,0,0,255,,,,,,,,,,,,,,,,,ADAS settings (bit 40|8@1+)
+CORE VEHICLE STATE,RECEIVE,Cruise_Control,98,carState,statCcEn,1,0,0,1,,,,,,,,,,,,,,,,,Cruise control enabled status (bit 48|1@1+)
+CORE VEHICLE STATE,RECEIVE,Cruise_Control,98,carState,statCcActive,1,0,0,1,,,,,,,,,,,,,,,,,Cruise control active status (bit 49|1@1+)
+CORE VEHICLE STATE,RECEIVE,Lane_Assist,98,carState,statLnEn,1,0,0,1,,,,,,,,,,,,,,,,,Lane assist enabled status (bit 50|1@1+)
+CORE VEHICLE STATE,RECEIVE,Lane_Assist,98,carState,statLnActive,1,0,0,1,,,,,,,,,,,,,,,,,Lane assist active status (bit 51|1@1+)
+CORE VEHICLE STATE,RECEIVE,Safety_Systems,98,carState,vehDynMode,1,0,0,15,1021,GW_3FD,BCM_DriveMode,1,0,0,15,BP = (DEEPAL > 0),bool,bool,enum,10,0,HIGH,YES,Vehicle dynamics mode (bit 56|2@1+)
+CORE VEHICLE STATE,RECEIVE,Brake_System,98,carState,parkingBrake,1,0,0,1,266,GW_10A,EPB_Status,1,0,0,3,BP = (DEEPAL > 0),bool,bool,enum,10,0,HIGH,YES,Parking brake status (bit 58|1@1+)
+DRIVETRAIN MAPPING,RECEIVE,Drivetrain,98,carState,rdyDrive,1,0,0,1,,,,,,,,,,,,,,,,,Ready to drive status (bit 59|1@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,98,carState,blindSpotFL,1,0,0,1,,,,,,,,,,,,,,,,,Blind spot front left (bit 60|1@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,98,carState,blindSpotFR,1,0,0,1,,,,,,,,,,,,,,,,,Blind spot front right (bit 61|1@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,98,carState,blindSpotRL,1,0,0,1,,,,,,,,,,,,,,,,,Blind spot rear left (bit 62|1@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,98,carState,blindSpotRR,1,0,0,1,,,,,,,,,,,,,,,,,Blind spot rear right (bit 63|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchBeltDriver,1,0,0,1,80,GW_50,SRS_DriverBuckleSwitchStatus,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,5,0,HIGH,YES,Driver seatbelt (bit 0|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchBeltPassenger,1,0,0,1,80,GW_50,SRS_PassengerBuckleSwitchStatus,1,0,0,3,BP = (DEEPAL == 1),bool,bool,enum,5,0,HIGH,YES,Passenger seatbelt (bit 1|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchHood,1,0,0,1,,,,,,,,,,,,,,,,,Hood switch (bit 2|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchTrunk,1,0,0,1,,,,,,,,,,,,,,,,,Trunk switch (bit 3|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchDoorFL,1,0,0,1,651,GW_28B,BCM_DriverDoorStatus,1,0,0,1,BP = DEEPAL,bool,bool,bool,5,0,HIGH,YES,Front left door (bit 4|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchDoorFR,1,0,0,1,721,GW_2D1,BCM_PassengerDoorStatus,1,0,0,1,BP = DEEPAL,bool,bool,bool,5,0,HIGH,YES,Front right door (bit 5|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchDoorRL,1,0,0,1,664,GW_298,BCM_LeftRearDoorStatus,1,0,0,1,BP = DEEPAL,bool,bool,bool,5,0,MEDIUM,NO,Rear left door (bit 6|1@1+)
+BODY STATE MAPPING,RECEIVE,Safety_State,99,carState2,switchDoorRR,1,0,0,1,721,GW_2D1,BCM_RightRearDoorStatus,1,0,0,1,BP = DEEPAL,bool,bool,bool,5,0,MEDIUM,NO,Rear right door (bit 7|1@1+)
+DRIVETRAIN MAPPING,RECEIVE,Drivetrain,99,carState2,chrgState,1,0,0,3,,,,,,,,,,,,,,,,,Charge state (bit 8|2@1+)
+WHEEL SENSOR MAPPING,RECEIVE,Wheel_Speed,100,wheelSensor,wheelFrontLeft,0.05625,0,0,360,523,GW_20B,Wheel_Speed_FL_Data,0.05625,0,0,360,BP = DEEPAL * 1.0,float,km/h,km/h,20,0,HIGH,YES,Front left wheel speed (bit 0|13@1+)
+WHEEL SENSOR MAPPING,RECEIVE,Wheel_Speed,100,wheelSensor,wheelFrontRight,0.05625,0,0,360,523,GW_20B,Wheel_Speed_FR_Data,0.05625,0,0,360,BP = DEEPAL * 1.0,float,km/h,km/h,20,0,HIGH,YES,Front right wheel speed (bit 16|13@1+)
+WHEEL SENSOR MAPPING,RECEIVE,Wheel_Speed,100,wheelSensor,wheelRearLeft,0.05625,0,0,360,523,GW_20B,Wheel_Speed_RL_Data,0.05625,0,0,360,BP = DEEPAL * 1.0,float,km/h,km/h,20,0,HIGH,YES,Rear left wheel speed (bit 32|13@1+)
+WHEEL SENSOR MAPPING,RECEIVE,Wheel_Speed,100,wheelSensor,wheelRearRight,0.05625,0,0,360,523,GW_20B,Wheel_Speed_RR_Data,0.05625,0,0,360,BP = DEEPAL * 1.0,float,km/h,km/h,20,0,HIGH,YES,Rear right wheel speed (bit 48|13@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,101,adasState,leadDistY,0.04,0,0,655.32,898,ACC_382,ACC_Target1LatRange,0.1,-50,50,50,BP = DEEPAL * 0.4,float,m,m,20,0,MEDIUM,NO,Lead vehicle lateral distance (bit 0|14@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,101,adasState,leadDistX,0.04,0,0,655.32,898,ACC_382,ACC_Target1LngRange,0.1,-100,300,300,BP = DEEPAL * 0.4,float,m,m,20,0,MEDIUM,NO,Lead vehicle longitudinal distance (bit 14|14@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,101,adasState,leadNum,1,0,0,3,898,ACC_382,ACC_Target1ID,1,0,0,63,BP = (DEEPAL > 0) ? 1 : 0,uint8,count,count,20,0,MEDIUM,NO,Lead vehicle ID (bit 28|4@1+)
+RADAR STATE MAPPING,RECEIVE,Radar_Data,101,adasState,leadConf,0.4,0,0,102,898,ACC_382,ACC_Target1Detection,1,0,0,7,BP = DEEPAL * 14.6,float,%,enum,20,0,MEDIUM,NO,Lead vehicle detection confidence (bit 32|8@1+)
+CORE VEHICLE STATE,RECEIVE,Vehicle_Dynamics,102,chassisState,longAccel,0.001,-32.768,-32.768,32.767,349,GW_15D,ESP_LongAccel,0.03125,-16,15.90625,15.90625,BP = DEEPAL * 0.032,float,m/s2,m/s2,50,0,MEDIUM,NO,Longitudinal acceleration (bit 0|16@1+)
+CORE VEHICLE STATE,RECEIVE,Vehicle_Dynamics,102,chassisState,latAccel,0.001,-32.768,-32.768,32.767,349,GW_15D,ESP_LatAccel,0.1,-12.7,12.7,12.7,BP = DEEPAL * 0.01,float,m/s2,m/s2,50,0,MEDIUM,NO,Lateral acceleration (bit 16|16@1+)
+CORE VEHICLE STATE,RECEIVE,Safety_Systems,102,chassisState,espEn,1,0,0,1,391,GW_187,ESP_ESPActiveStatus,1,0,0,1,BP = DEEPAL,bool,bool,bool,50,0,HIGH,YES,ESP enabled (bit 56|1@1+)
+CORE VEHICLE STATE,RECEIVE,Safety_Systems,102,chassisState,absEn,1,0,0,1,391,GW_187,ESP_ABSFailStatus,1,0,0,1,BP = !DEEPAL,bool,bool,bool,50,0,HIGH,YES,ABS enabled (bit 57|1@1+)
+CORE VEHICLE STATE,RECEIVE,Safety_Systems,102,chassisState,tracCtrlEn,1,0,0,1,391,GW_187,ESP_TCSFailStatus,1,0,0,1,BP = !DEEPAL,bool,bool,bool,50,0,HIGH,YES,Traction control enabled (bit 58|1@1+)
+CORE VEHICLE STATE,RECEIVE,Safety_Systems,102,chassisState,stabCtrlEn,1,0,0,1,391,GW_187,ESP_ESPFunctionStatus,1,0,0,1,BP = DEEPAL,bool,bool,bool,50,0,HIGH,YES,Stability control enabled (bit 59|1@1+)
+TRANSMISSION CONTROL,RECEIVE,Transmission,103,drivetrainState,gearRatio,0.1,0,0,6.3,,,,,,,,,,,,,,,,,Gear ratio (bit 42|6@1+)
+POWERTRAIN MAPPING,RECEIVE,Powertrain,104,powertrainState,engRun,1,0,0,1,,,,,,,,,,,,,,,,,
+POWERTRAIN MAPPING,RECEIVE,Powertrain,104,powertrainState,pwrFault,1,0,0,255,,,,,,,,,,,,,,,,,
+POWERTRAIN MAPPING,RECEIVE,Powertrain,104,powertrainState,coolTemp,1,-40,-40,215,,,,,,,,,,,,,,,,,
+POWERTRAIN MAPPING,RECEIVE,Powertrain,104,powertrainState,fuelLvl,0.4,0,0,102,,,,,,,,,,,,,,,,,
+DRIVETRAIN MAPPING,RECEIVE,Drivetrain,104,powertrainState,battTemp,1,-40,-40,215,,,,,,,,,,,,,,,,,
+DRIVETRAIN MAPPING,RECEIVE,Drivetrain,104,powertrainState,battLvl,0.4,0,0,102,,,,,,,,,,,,,,,,,
+CORE VEHICLE STATE,RECEIVE,Engine_Data,104,powertrainState,engRPM,0.25,0,0,16383.75,,,,,,,,,,,,,,,,,Engine speed (bit 16|16@1+)
+DRIVETRAIN MAPPING,RECEIVE,Drivetrain,104,powertrainState,engType,1,0,0,3,,,,,,,,,,,,,,,,,
+IMU SENSOR MAPPING,RECEIVE,IMU_Data,105,imuSensor,imuAxisLat,0.001,-32.768,-32.768,32.767,,,,,,,,,,,,,,,,,
+IMU SENSOR MAPPING,RECEIVE,IMU_Data,105,imuSensor,imuAxisLong,0.001,-32.768,-32.768,32.767,,,,,,,,,,,,,,,,,
+IMU SENSOR MAPPING,RECEIVE,IMU_Data,105,imuSensor,imuAxisZ,0.001,-32.768,-32.768,32.767,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,106,longCommand,cmdSpeedTarget,0.01,0,0,655.35,,,,,,,,,,,,,,,,,Speed target command (bit 8|16@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,106,longCommand,cmdTorque,5,-5000,-5000,15475,580,ACC_244,ACC_AccTrqReq,5,-5000,5000,5000,BP = DEEPAL,int16,NM,NM,10,0,HIGH,YES,Longitudinal torque command (bit 24|12@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Emergency_Control,106,longCommand,cmdBrakePressure,0.015625,0,0,1023.984375,,,,,,,,,,,,,,,,,,Brake pressure command (bit 48|12@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,106,longCommand,cmdPedalBrk,0.4,0,0,102,,,,,,,,,,,,,,,,,Brake pedal command (bit 40|8@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,107,longCommand2,cmdSpeedAccel,0.05,-10,-10,2.75,,,,,,,,,,,,,,,,,Speed acceleration command (bit 0|8@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,107,longCommand2,cmdCruiseEnabled,1,0,0,1,,,,,,,,,,,,,,,,,Cruise enabled command (bit 8|1@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,107,longCommand2,cmdCruiseActive,1,0,0,1,,,,,,,,,,,,,,,,,Cruise active command (bit 9|1@1+)
+COMMAND OUTPUTS - LONGITUDINAL,SEND,Longitudinal_Control,107,longCommand2,cmdCruiseStandstill,1,0,0,1,,,,,,,,,,,,,,,,,Cruise standstill command (bit 10|1@1+) | Request Signals: DriveoffReq=580:ACC_Driveoff_Request | EngineStartStop=580:ACC_EngineStartStopRequest
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdSteerAngle,0.1,-3276.8,-3276.8,3276.7,442,ACC_1BA,ACC_LatAngReq,0.1,-720,720,720,DEEPAL_1BA = BP,float,deg,degree,50,SEND,HIGH,YES,Steering angle command (bit 17|14@0+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdSteerTorque,0.01,-327.68,-327.68,327.67,,,,,,,,,,,,,,,,,Steering torque command (bit 16|16@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdSteerMode,1,0,0,1,442,ACC_1BA,ACC_LatAngReqActive,1,0,0,1,DEEPAL_1BA = BP,bool,bool,bool,50,SEND,MEDIUM,NO,Steering mode active (bit 35|1@0+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdSteerEnable,1,0,0,1,442,ACC_1BA,ACC_LatAngReqActive,1,0,0,1,DEEPAL_1BA = BP,bool,bool,bool,50,SEND,HIGH,YES,Steering enable command (bit 35|1@0+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdLaneActive,1,0,0,1,,,,,,,,,,,,,,,,,Lane active command (bit 41|1@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdSteerAlert,1,0,0,3,442,ACC_1BA,ACC_LKAinhaitWarning,1,0,0,3,DEEPAL_1BA = BP,uint8,enum,enum,50,SEND,MEDIUM,NO,Steering alert level (bit 111|2@0+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdSteerShake,1,0,0,3,,,,,,,,,,,,,,,,,Steering shake command - NO DEEPAL EQUIVALENT | Motor Requests: TorqueMinLimit=442:ACC_MotorTorqueMinLimitRequest | TorqueMaxLimit=442:ACC_MotorTorqueMaxLimitRequest
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdLaneEnable,1,0,0,1,,,,,,,,,,,,,,,,,Lane enable command (bit 40|1@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,108,latCommand,cmdLaneAlert,1,0,0,1,,,,,,,,,,,,,,,,,Lane alert command (bit 42|1@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,109,latCommand2,adasSettings,1,0,0,255,,,,,,,,,,,,,,,,,ADAS settings (bit 0|8@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,109,latCommand2,hudPassthrough,1,0,0,65535,,,,,,,,,,,,,,,,,HUD passthrough data (bit 8|16@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,109,latCommand2,statusCruiseEnabled,1,0,0,1,,,,,,,,,,,,,,,,,Cruise enabled status (bit 24|1@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,109,latCommand2,statusCruiseActive,1,0,0,1,,,,,,,,,,,,,,,,,Cruise active status (bit 25|1@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,109,latCommand2,statusLaneKeepEnabled,1,0,0,1,,,,,,,,,,,,,,,,,Lane keep enabled status (bit 26|1@1+)
+COMMAND OUTPUTS - LATERAL,SEND,Lateral_Control,109,latCommand2,statusLaneKeepActive,1,0,0,1,,,,,,,,,,,,,,,,,Lane keep active status (bit 27|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispCruiseEnable,1,0,0,1,,,,,,,,,,,,,,,,,Cruise enable display (bit 0|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLaneEnable,1,0,0,1,,,,,,,,,,,,,,,,,Lane enable display (bit 1|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispSoundAlert,1,0,0,1,,,,,,,,,,,,,,,,,Sound alert display (bit 2|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLeadC,1,0,0,1,,,,,,,,,,,,,,,,,Lead center display (bit 3|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLeadR,1,0,0,1,,,,,,,,,,,,,,,,,Lead right display (bit 4|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLeadL,1,0,0,1,,,,,,,,,,,,,,,,,Lead left display (bit 5|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispDepartLeft,1,0,0,1,,,,,,,,,,,,,,,,,Depart left display (bit 6|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispDepartRight,1,0,0,1,,,,,,,,,,,,,,,,,Depart right display (bit 7|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLane1,1,0,0,1,,,,,,,,,,,,,,,,,Lane 1 display (bit 8|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLane2,1,0,0,1,,,,,,,,,,,,,,,,,Lane 2 display (bit 9|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLane3,1,0,0,1,,,,,,,,,,,,,,,,,Lane 3 display (bit 10|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispLane4,1,0,0,1,,,,,,,,,,,,,,,,,Lane 4 display (bit 11|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispRoadEdgeLeft,1,0,0,1,,,,,,,,,,,,,,,,,Road edge left display (bit 12|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispRoadEdgeRight,1,0,0,1,,,,,,,,,,,,,,,,,Road edge right display (bit 13|1@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispFollowDistance,1,0,0,7,,,,,,,,,,,,,,,,,Follow distance display (bit 32|3@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispSpeed,0.01,0,0,655.35,,,,,,,,,,,,,,,,,Display speed command (bit 16|16@1+)
+COMMAND OUTPUTS - DISPLAY,SEND,Display_Control,110,dispCommand,cmdDispCruiseSecondary,1,0,0,1,,,,,,,,,,,,,,,,,Cruise secondary display (bit 15|1@1+)
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,roadType,1,0,0,15,,,,,,,,,,,,,,,,,
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,tlState,1,0,0,3,,,,,,,,,,,,,,,,,
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,obstacle,1,0,0,1,,,,,,,,,,,,,,,,,
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,roadValid,1,0,0,1,,,,,,,,,,,,,,,,,
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,curv,0.0001,-3.2768,-3.2768,3.2767,,,,,,,,,,,,,,,,,
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,laneW,0.01,0,0,655.35,,,,,,,,,,,,,,,,,
+VISION INFORMATION,SEND,Vision_Data,111,visionInfo,laneOffs,0.01,-327.68,-327.68,327.67,,,,,,,,,,,,,,,,,
+POWERTRAIN MAPPING,RECEIVE,Powertrain,104,powertrainState,engRPM,0.25,0,0,16383.75,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - DRIVETRAIN,SEND,Drivetrain_Control,109,latCommand2,cmdTorq,0.1,-3276.8,-3276.8,3276.7,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - DRIVETRAIN,SEND,Drivetrain_Control,109,latCommand2,cmdTorqMode,1,0,0,15,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - DRIVETRAIN,SEND,Drivetrain_Control,109,latCommand2,cmdDrvEn,1,0,0,1,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - DRIVETRAIN,SEND,Drivetrain_Control,109,latCommand2,cmdRegenEn,1,0,0,1,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - DRIVETRAIN,SEND,Drivetrain_Control,109,latCommand2,cmdDrvMode,1,0,0,15,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - CHASSIS,SEND,Chassis_Control,110,dispCommand,stabCtrlLvl,0.4,0,0,102,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - CHASSIS,SEND,Chassis_Control,110,dispCommand,drvMode,1,0,0,15,,,,,,,,,,,,,,,,,
+COMMAND OUTPUTS - CHASSIS,SEND,Chassis_Control,110,dispCommand,chassCtrlAct,1,0,0,1,,,,,,,,,,,,,,,,,Safety Requests: EmergencyLighting=794:ACC_EmergencyLightingRequest | VoiceRequest=786:ADS_ADSVoiceRequest | AEBHoldReq=787:LCDAR_AEBVehilceHoldReq | LDWVibrationReq=787:LCDAR_LDWVibrationWarningReq | AutoHeadlightReq=786:ADS_AutoHeadlightshift_Req | UDLCTurnLightReq=786:ADS_UDLCTurnLightReq
