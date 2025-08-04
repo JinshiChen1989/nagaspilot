@@ -222,23 +222,11 @@ void loggerd_thread() {
   std::unique_ptr<Context> ctx(Context::create());
   std::unique_ptr<Poller> poller(Poller::create());
 
-  const bool disable_driver = getenv("DISABLE_DRIVER");
-  const std::set<std::string> driver_signals = {
-    "driverCameraState",
-    "driverEncodeIdx",
-    "driverStateV2",
-    "driverMonitoringState",
-    "driverEncodeData",
-    "livestreamDriverEncodeIdx",
-    "livestreamDriverEncodeData"
-  };
-
   // subscribe to all socks
   for (const auto& [_, it] : services) {
     const bool encoder = util::ends_with(it.name, "EncodeData");
     const bool livestream_encoder = util::starts_with(it.name, "livestream");
     if (!it.should_log && (!encoder || livestream_encoder)) continue;
-    if (disable_driver && driver_signals.count(it.name)) continue;
     LOGD("logging %s", it.name.c_str());
 
     SubSocket * sock = SubSocket::create(ctx.get(), it.name);
@@ -261,15 +249,7 @@ void loggerd_thread() {
   std::map<std::string, EncoderInfo> encoder_infos_dict;
   for (const auto &cam : cameras_logged) {
     for (const auto &encoder_info : cam.encoder_infos) {
-      const std::string &name = encoder_info.publish_name;
-      if (disable_driver && (
-          name == "driverEncodeData" ||
-          name == "driverEncodeIdx" ||
-          name == "livestreamDriverEncodeData" ||
-          name == "livestreamDriverEncodeIdx")) {
-        continue;
-      }
-      encoder_infos_dict[name] = encoder_info;
+      encoder_infos_dict[encoder_info.publish_name] = encoder_info;
       s.max_waiting++;
     }
   }

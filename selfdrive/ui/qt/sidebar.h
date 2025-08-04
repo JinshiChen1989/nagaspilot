@@ -18,7 +18,6 @@ class Sidebar : public QFrame {
   Q_PROPERTY(ItemStatus tempStatus MEMBER temp_status NOTIFY valueChanged);
   Q_PROPERTY(QString netType MEMBER net_type NOTIFY valueChanged);
   Q_PROPERTY(int netStrength MEMBER net_strength NOTIFY valueChanged);
-  Q_PROPERTY(QString ipAddr MEMBER ipAddr NOTIFY valueChanged);
 
 public:
   explicit Sidebar(QWidget* parent = 0);
@@ -58,11 +57,6 @@ protected:
   ItemStatus connect_status, panda_status, temp_status;
   QString net_type;
   int net_strength = 0;
-  QString ipAddr = "";
-  QString ip_addr = "";
-  QString ip_addr_prev = "";
-  bool ip_changed = false;
-  QImage ip_qrcode_cache;
 
 private:
   std::unique_ptr<PubMaster> pm;

@@ -35,22 +35,12 @@ void PairingQRWidget::hideEvent(QHideEvent *event) {
 }
 
 void PairingQRWidget::refresh() {
-  /*
   QString pairToken = CommaApi::create_jwt({{"pair", true}});
   QString qrString = "https://connect.comma.ai/?pair=" + pairToken;
   this->updateQrCode(qrString);
-  */
-  // Load fixed QR.png asset instead
-  img = QPixmap("../assets/images/QR.png");
-  if (!img.isNull()) {
-    // Scale the image to fit the widget size
-    int final_sz = qMin(width(), height()) - 20; // Add some padding
-    img = img.scaled(final_sz, final_sz, Qt::KeepAspectRatio, Qt::SmoothTransformation);
-  }
   update();
 }
 
-/*
 void PairingQRWidget::updateQrCode(const QString &text) {
   QrCode qr = QrCode::encodeText(text.toUtf8().data(), QrCode::Ecc::LOW);
   qint32 sz = qr.getSize();
@@ -68,7 +58,6 @@ void PairingQRWidget::updateQrCode(const QString &text) {
   int final_sz = ((width() / sz) - 1) * sz;
   img = QPixmap::fromImage(im.scaled(final_sz, final_sz, Qt::KeepAspectRatio), Qt::MonoOnly);
 }
-*/
 
 void PairingQRWidget::paintEvent(QPaintEvent *e) {
   QPainter p(this);
@@ -100,7 +89,7 @@ PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
 
     vlayout->addSpacing(30);
 
-    QLabel *title = new QLabel(tr("Installation Guide"), this);
+    QLabel *title = new QLabel(tr("Pair your device to your comma account"), this);
     title->setStyleSheet("font-size: 75px; color: black;");
     title->setWordWrap(true);
     vlayout->addWidget(title);
@@ -111,9 +100,9 @@ PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
         <li style='margin-bottom: 50px;'>%2</li>
         <li style='margin-bottom: 50px;'>%3</li>
       </ol>
-    )").arg(tr("Scan QR code for YouTube video"))
-    .arg(tr("Subscribe and like our channel"))
-    .arg(tr("Enjoy The Ride !!!")), this);
+    )").arg(tr("Go to https://connect.comma.ai on your phone"))
+    .arg(tr("Click \"add new device\" and scan the QR code on the right"))
+    .arg(tr("Bookmark connect.comma.ai to your home screen to use it like an app")), this);
 
     instructions->setStyleSheet("font-size: 47px; font-weight: bold; color: black;");
     instructions->setWordWrap(true);
@@ -157,32 +146,29 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
-  QLabel *upgrade = new QLabel(tr("NagasPilot"));
+  QLabel *upgrade = new QLabel(tr("Upgrade Now"));
   upgrade->setStyleSheet("font-size: 75px; font-weight: bold;");
   main_layout->addWidget(upgrade, 0, Qt::AlignTop);
   main_layout->addSpacing(50);
 
-  QLabel *description = new QLabel(tr("We focus on road testing and delivering good product to you"));
+  QLabel *description = new QLabel(tr("Become a comma prime member at connect.comma.ai"));
   description->setStyleSheet("font-size: 56px; font-weight: light; color: white;");
   description->setWordWrap(true);
   main_layout->addWidget(description, 0, Qt::AlignTop);
 
   main_layout->addStretch();
 
-  // Add more spacing to avoid conflict with description text
-  main_layout->addSpacing(80);
-
-  QLabel *features = new QLabel(tr("Current Updates:"));
-  features->setStyleSheet("font-size: 48px; font-weight: bold; color: #E5E5E5; margin-bottom: 10px;");
+  QLabel *features = new QLabel(tr("PRIME FEATURES:"));
+  features->setStyleSheet("font-size: 41px; font-weight: bold; color: #E5E5E5;");
   main_layout->addWidget(features, 0, Qt::AlignBottom);
-  main_layout->addSpacing(35);
+  main_layout->addSpacing(30);
 
-  QVector<QString> bullets = {tr("Porting BYD_ATTO3"), tr("Porting DEEPAL_S05")};
+  QVector<QString> bullets = {tr("Remote access"), tr("24/7 LTE connectivity"), tr("1 year of drive storage"), tr("Remote snapshots")};
   for (auto &b : bullets) {
     const QString check = "<b><font color='#465BEA'>✓</font></b> ";
     QLabel *l = new QLabel(check + b);
     l->setAlignment(Qt::AlignLeft);
-    l->setStyleSheet("font-size: 52px; margin-bottom: 20px; line-height: 1.2;");
+    l->setStyleSheet("font-size: 50px; margin-bottom: 15px;");
     main_layout->addWidget(l, 0, Qt::AlignBottom);
   }
 
@@ -206,18 +192,18 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   finishRegistrationLayout->setSpacing(38);
   finishRegistrationLayout->setContentsMargins(64, 48, 64, 48);
 
-  QLabel* registrationTitle = new QLabel(tr("Installation Guide"));
+  QLabel* registrationTitle = new QLabel(tr("Finish Setup"));
   registrationTitle->setStyleSheet("font-size: 75px; font-weight: bold;");
   finishRegistrationLayout->addWidget(registrationTitle);
 
-  QLabel* registrationDescription = new QLabel(tr("Click below to get more information about us"));
+  QLabel* registrationDescription = new QLabel(tr("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer."));
   registrationDescription->setWordWrap(true);
   registrationDescription->setStyleSheet("font-size: 50px; font-weight: light;");
   finishRegistrationLayout->addWidget(registrationDescription);
 
   finishRegistrationLayout->addStretch();
 
-  QPushButton* pair = new QPushButton(tr("QR Code"));
+  QPushButton* pair = new QPushButton(tr("Pair device"));
   pair->setStyleSheet(R"(
     QPushButton {
       font-size: 55px;
@@ -249,7 +235,6 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
   WiFiPromptWidget *wifi_prompt = new WiFiPromptWidget;
   QObject::connect(wifi_prompt, &WiFiPromptWidget::openSettings, this, &SetupWidget::openSettings);
-  QObject::connect(wifi_prompt, &WiFiPromptWidget::openInstallationGuide, popup, &PairingPopup::exec);
   content_layout->addWidget(wifi_prompt);
   content_layout->addStretch();
 
@@ -270,12 +255,11 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
   setSizePolicy(sp_retain);
 
   QObject::connect(uiState()->prime_state, &PrimeState::changed, [this](PrimeState::Type type) {
-    // BrownPanda: Always show Wi-Fi prompt, never show pairing UI
-    // if (type == PrimeState::PRIME_TYPE_UNPAIRED) {
-    //   mainLayout->setCurrentIndex(0);  // Display "Pair your device" widget
-    // } else {
+    if (type == PrimeState::PRIME_TYPE_UNPAIRED) {
+      mainLayout->setCurrentIndex(0);  // Display "Pair your device" widget
+    } else {
       popup->reject();
       mainLayout->setCurrentIndex(1);  // Display Wi-Fi prompt widget
-    // }
+    }
   });
 }

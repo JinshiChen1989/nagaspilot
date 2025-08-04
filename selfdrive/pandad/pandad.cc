@@ -372,7 +372,6 @@ void process_peripheral_state(Panda *panda, PubMaster *pm, bool no_fan_control) 
   static uint16_t prev_fan_speed = 999;
   static uint16_t ir_pwr = 0;
   static uint16_t prev_ir_pwr = 999;
-  const bool disable_driver = getenv("DISABLE_DRIVER");
 
   static FirstOrderFilter integ_lines_filter(0, 30.0, 0.05);
 
@@ -387,7 +386,7 @@ void process_peripheral_state(Panda *panda, PubMaster *pm, bool no_fan_control) 
       }
     }
 
-    if (!disable_driver && sm.updated("driverCameraState")) {
+    if (sm.updated("driverCameraState")) {
       auto event = sm["driverCameraState"];
       int cur_integ_lines = event.getDriverCameraState().getIntegLines();
 
@@ -404,7 +403,7 @@ void process_peripheral_state(Panda *panda, PubMaster *pm, bool no_fan_control) 
     }
 
     // Disable IR on input timeout
-    if (!disable_driver && nanos_since_boot() - last_driver_camera_t > 1e9) {
+    if (nanos_since_boot() - last_driver_camera_t > 1e9) {
       ir_pwr = 0;
     }
 

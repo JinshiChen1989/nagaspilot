@@ -10,7 +10,6 @@ from openpilot.common.filter_simple import FirstOrderFilter
 from openpilot.common.realtime import Ratekeeper
 from openpilot.common.retry import retry
 from openpilot.common.swaglog import cloudlog
-from openpilot.common.params import Params
 
 from openpilot.system import micd
 
@@ -63,7 +62,6 @@ class Soundd:
 
     self.spl_filter_weighted = FirstOrderFilter(0, 2.5, FILTER_DT, initialized=False)
 
-
   def load_sounds(self):
     self.loaded_sounds: dict[int, np.ndarray] = {}
 
@@ -97,7 +95,6 @@ class Soundd:
         ret[written_frames:written_frames+frames_to_write] = sound_data[current_sound_frame:current_sound_frame+frames_to_write]
         written_frames += frames_to_write
         self.current_sound_frame += frames_to_write
-
 
     return ret * self.current_volume
 

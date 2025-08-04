@@ -42,8 +42,6 @@ _services: dict[str, tuple] = {
   "carControl": (True, 100., 10),
   "carOutput": (True, 100., 10),
   "longitudinalPlan": (True, 20., 10),
-  "longitudinalPlanSP": (True, 20., 5),
-  "lateralPlanDEPRECATED": (True, 20., 5),
   "driverAssistance": (True, 20., 20),
   "procLog": (True, 0.5, 15),
   "gpsLocationExternal": (True, 10., 10),
@@ -68,9 +66,6 @@ _services: dict[str, tuple] = {
   "wideRoadCameraState": (True, 20., 20),
   "drivingModelData": (True, 20., 10),
   "modelV2": (True, 20.),
-  "yolov8Detections": (True, 20., 10),
-  "eods": (True, 20., 10),
-  "soc": (True, 20., 10),
   "managerState": (True, 2., 1),
   "uploaderState": (True, 0., 1),
   "navInstruction": (True, 1., 10),
@@ -97,11 +92,6 @@ _services: dict[str, tuple] = {
   "customReservedRawData0": (True, 0.),
   "customReservedRawData1": (True, 0.),
   "customReservedRawData2": (True, 0.),
-  "npControlsState": (False, 100., 10),
-  "modelExt": (True, 20.),
-  
-  # nagaspilot DLP services
-  "lateralPlanSPDEPRECATED": (True, 20., 5),
 }
 SERVICE_LIST = {name: Service(*vals) for
                 idx, (name, vals) in enumerate(_services.items())}

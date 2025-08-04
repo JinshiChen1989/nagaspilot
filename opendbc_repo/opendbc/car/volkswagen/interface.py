@@ -10,7 +10,7 @@ class CarInterface(CarInterfaceBase):
   CarController = CarController
 
   @staticmethod
-  def _get_params(ret: structs.CarParams, candidate: CAR, fingerprint, car_fw, alpha_long, is_release, np_params, docs) -> structs.CarParams:
+  def _get_params(ret: structs.CarParams, candidate: CAR, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
     ret.brand = "volkswagen"
     ret.radarUnavailable = True
 
@@ -35,7 +35,7 @@ class CarInterface(CarInterfaceBase):
       # It is documented in a four-part blog series:
       #   https://blog.willemmelching.nl/carhacking/2022/01/02/vw-part1/
       # Panda ALLOW_DEBUG firmware required.
-      # ret.dashcamOnly = True
+      ret.dashcamOnly = True
 
     else:
       # Set global MQB parameters
@@ -86,6 +86,5 @@ class CarInterface(CarInterfaceBase):
     ret.vEgoStarting = 0.1
     ret.vEgoStopping = 0.5
     ret.autoResumeSng = ret.minEnableSpeed == -1
-
 
     return ret

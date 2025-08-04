@@ -70,7 +70,7 @@ const EncoderInfo main_wide_road_encoder_info = {
 const EncoderInfo main_driver_encoder_info = {
   .publish_name = "driverEncodeData",
   .filename = "dcamera.hevc",
-  .record = !getenv("DISABLE_DRIVER") && Params().getBool("RecordFront"),
+  .record = Params().getBool("RecordFront"),
   INIT_ENCODE_FUNCTIONS(DriverEncode),
 };
 

@@ -84,27 +84,27 @@
     </message>
     <message>
         <source>Prevent large data uploads when on a metered cellular connection</source>
-        <translation>ลดการส่งข้อมูลผ่านเซลลูลาร์</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>default</source>
-        <translation>ค่าเริ่มต้น</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>metered</source>
-        <translation>มีการจําแนก</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>unmetered</source>
-        <translation>ไม่มีการจําแนก</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Wi-Fi Network Metered</source>
-        <translation>เครือข่าย Wi-Fi มีการจําแนก</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Prevent large data uploads when on a metered Wi-Fi connection</source>
-        <translation>ลดการส่งข้อมูลผ่าน Wi-Fi</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -122,7 +122,7 @@
     <name>DeclinePage</name>
     <message>
         <source>You must accept the Terms and Conditions in order to use openpilot.</source>
-        <translation>ต้องยอมรับเงื่อนไขก่อนใช้งาน openpilot</translation>
+        <translation>คุณต้องยอมรับเงื่อนไขและข้อตกลง เพื่อใช้งาน openpilot</translation>
     </message>
     <message>
         <source>Back</source>
@@ -149,11 +149,11 @@
     </message>
     <message>
         <source>WARNING: openpilot longitudinal control is in alpha for this car and will disable Automatic Emergency Braking (AEB).</source>
-        <translation>คำเตือน: ระบบเร่ง/เบรค openpilot เป็น alpha และจะปิด AEB</translation>
+        <translation>คำเตือน: การควบคุมการเร่ง/เบรคโดย openpilot สำหรับรถคันนี้ยังอยู่ในสถานะ alpha และระบบเบรคฉุกเฉินอัตโนมัติ (AEB) จะถูกปิด</translation>
     </message>
     <message>
         <source>On this car, openpilot defaults to the car&apos;s built-in ACC instead of openpilot&apos;s longitudinal control. Enable this to switch to openpilot longitudinal control. Enabling Experimental mode is recommended when enabling openpilot longitudinal control alpha.</source>
-        <translation>รถคันนี้จะใช้ ACC จากโรงงาน เปิดเพื่อให้ openpilot ควบคุมแทน (แนะนำให้เปิดโหมดทดลอง)</translation>
+        <translation>โดยปกติสำหรับรถคันนี้ openpilot จะควบคุมการเร่ง/เบรคด้วยระบบ ACC จากโรงงาน แทนการควยคุมโดย openpilot เปิดสวิตซ์นี้เพื่อให้ openpilot ควบคุมการเร่ง/เบรค แนะนำให้เปิดโหมดทดลองเมื่อต้องการให้ openpilot ควบคุมการเร่ง/เบรค ซึ่งอยู่ในสถานะ alpha</translation>
     </message>
     <message>
         <source>Enable ADB</source>
@@ -161,14 +161,14 @@
     </message>
     <message>
         <source>ADB (Android Debug Bridge) allows connecting to your device over USB or over the network. See https://docs.comma.ai/how-to/connect-to-comma for more info.</source>
-        <translation>ADB ใช้เชื่อมต่ออุปกรณ์ผ่าน USB หรือเครือข่าย (ดูที่ docs.comma.ai)</translation>
+        <translation>ADB (Android Debug Bridge) อนุญาตให้เชื่อมต่ออุปกรณ์ของคุณผ่าน USB หรือผ่านเครือข่าย ดูข้อมูลเพิ่มเติมที่ https://docs.comma.ai/how-to/connect-to-comma</translation>
     </message>
 </context>
 <context>
     <name>DevicePanel</name>
     <message>
         <source>Dongle ID</source>
-        <translation>รหัสอุปกรณ์</translation>
+        <translation>Dongle ID</translation>
     </message>
     <message>
         <source>N/A</source>
@@ -180,7 +180,7 @@
     </message>
     <message>
         <source>Driver Camera</source>
-        <translation>กล้องผู้ขับ</translation>
+        <translation>กล้องฝั่งคนขับ</translation>
     </message>
     <message>
         <source>PREVIEW</source>
@@ -188,7 +188,7 @@
     </message>
     <message>
         <source>Preview the driver facing camera to ensure that driver monitoring has good visibility. (vehicle must be off)</source>
-        <translation>ดูภาพตัวอย่างกล้องผู้ขับ (ต้องดับเครื่องยนต์)</translation>
+        <translation>ดูภาพตัวอย่างกล้องที่หันเข้าหาคนขับเพื่อให้แน่ใจว่าการตรวจสอบคนขับมีทัศนวิสัยที่ดี (รถต้องดับเครื่องยนต์)</translation>
     </message>
     <message>
         <source>Reset Calibration</source>
@@ -308,11 +308,11 @@
     </message>
     <message>
         <source>Disengage to Reset Calibration</source>
-        <translation>ยกเลิกระบบก่อนรีเซ็ตการคาลิเบรท</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source> Resetting calibration will restart openpilot if the car is powered on.</source>
-        <translation> การรีเซ็ตจะรีสตาร์ท openpilot หากรถยังติดเครื่องอยู่</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -331,6 +331,43 @@
     <message>
         <source>CHILL MODE ON</source>
         <translation>คุณกำลังใช้โหมดชิล</translation>
+    </message>
+</context>
+<context>
+    <name>FirehosePanel</name>
+    <message>
+        <source>🔥 Firehose Mode 🔥</source>
+        <translation>🔥 โหมดสายยางดับเพลิง 🔥</translation>
+    </message>
+    <message>
+        <source>openpilot learns to drive by watching humans, like you, drive.
+
+Firehose Mode allows you to maximize your training data uploads to improve openpilot&apos;s driving models. More data means bigger models, which means better Experimental Mode.</source>
+        <translation>openpilot เรียนรู้วิธีขับรถจากการเฝ้าดูการขับขี่ของมนุษย์เช่นคุณ
+
+โหมดสายยางดับเพลิงช่วยให้คุณอัปโหลดข้อมูลการฝึกฝนได้มากที่สุด เพื่อนำไปพัฒนาโมเดลการขับขี่ของ openpilot ข้อมูลที่มากขึ้นหมายถึงโมเดลที่ใหญ่ขึ้น และนั่นหมายถึงโหมดทดลองที่ดีขึ้น</translation>
+    </message>
+    <message>
+        <source>Firehose Mode: ACTIVE</source>
+        <translation>โหมดสายยางดับเพลิง: เปิดใช้งาน</translation>
+    </message>
+    <message>
+        <source>ACTIVE</source>
+        <translation>เปิดใช้งาน</translation>
+    </message>
+    <message>
+        <source>For maximum effectiveness, bring your device inside and connect to a good USB-C adapter and Wi-Fi weekly.&lt;br&gt;&lt;br&gt;Firehose Mode can also work while you&apos;re driving if connected to a hotspot or unlimited SIM card.&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Frequently Asked Questions&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;i&gt;Does it matter how or where I drive?&lt;/i&gt; Nope, just drive as you normally would.&lt;br&gt;&lt;br&gt;&lt;i&gt;Do all of my segments get pulled in Firehose Mode?&lt;/i&gt; No, we selectively pull a subset of your segments.&lt;br&gt;&lt;br&gt;&lt;i&gt;What&apos;s a good USB-C adapter?&lt;/i&gt; Any fast phone or laptop charger should be fine.&lt;br&gt;&lt;br&gt;&lt;i&gt;Does it matter which software I run?&lt;/i&gt; Yes, only upstream openpilot (and particular forks) are able to be used for training.</source>
+        <translation>เพื่อประสิทธิภาพสูงสุด ควรนำอุปกรณ์เข้ามาข้างใน เชื่อมต่อกับอะแดปเตอร์ USB-C คุณภาพดี และ Wi-Fi สัปดาห์ละครั้ง&lt;br&gt;&lt;br&gt;โหมดสายยางดับเพลิงยังสามารถทำงานระหว่างขับรถได้ หากเชื่อมต่อกับฮอตสปอตหรือซิมการ์ดที่มีเน็ตไม่จำกัด&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;คำถามที่พบบ่อย&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;i&gt;วิธีการขับหรือสถานที่ขับขี่มีผลหรือไม่?&lt;/i&gt;ไม่มีผล แค่ขับขี่ตามปกติของคุณ&lt;br&gt;&lt;br&gt;&lt;i&gt;เซกเมนต์ทั้งหมดของฉันจะถูกดึงข้อมูลในโหมดสายยางดับเพลิงหรือไม่?&lt;/i&gt;ไม่ใช่ เราจะเลือกดึงข้อมูลเพียงบางส่วนจากเซกเมนต์ของคุณ&lt;br&gt;&lt;br&gt;&lt;i&gt;อะแดปเตอร์ USB-C แบบไหนดี?&lt;/i&gt;ที่ชาร์จเร็วของโทรศัพท์หรือแล็ปท็อปแบบใดก็ได้ สามารถใช้ได้&lt;br&gt;&lt;br&gt;&lt;i&gt;ซอฟต์แวร์ที่ใช้มีผลหรือไม่?&lt;/i&gt;มีผล เฉพาะ openpilot ตัวหลัก (และ fork เฉพาะบางตัว) เท่านั้น ที่สามารถนำข้อมูลไปใช้ฝึกฝนโมเดลได้</translation>
+    </message>
+    <message numerus="yes">
+        <source>&lt;b&gt;%n segment(s)&lt;/b&gt; of your driving is in the training dataset so far.</source>
+        <translation>
+            <numerusform>มีการขับขี่ของคุณ &lt;b&gt;%n เซกเมนต์&lt;/b&gt; อยู่ในชุดข้อมูลการฝึกฝนแล้วในขณะนี้</numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>&lt;span stylesheet=&apos;font-size: 60px; font-weight: bold; color: #e74c3c;&apos;&gt;INACTIVE&lt;/span&gt;: connect to an unmetered network</source>
+        <translation>&lt;span stylesheet=&apos;font-size: 60px; font-weight: bold; color: #e74c3c;&apos;&gt;ไม่เปิดใช้งาน&lt;/span&gt;: เชื่อมต่อกับเครือข่ายที่ไม่จำกัดข้อมูล</translation>
     </message>
 </context>
 <context>
@@ -523,8 +560,8 @@
         <translation>สมัครสมาชิก comma prime ได้ที่ connect.comma.ai</translation>
     </message>
     <message>
-        <source>PRIME FEATURES</source>
-        <translation>คุณสมบัติของ PRIME</translation>
+        <source>PRIME FEATURES:</source>
+        <translation>คุณสมบัติของ PRIME:</translation>
     </message>
     <message>
         <source>Remote access</source>
@@ -541,34 +578,6 @@
     <message>
         <source>Remote snapshots</source>
         <translation>ภาพถ่ายระยะไกล</translation>
-    </message>
-    <message>
-        <source>NagasPilot</source>
-        <translation>นาคาช่วยขับ</translation>
-    </message>
-    <message>
-        <source>We focus on road testing and delivering good product to you</source>
-        <translation>เราเน้นการทดสอบบนถนนจริง และส่งมอบผลิตภัณฑ์คุณภาพดีให้คุณ</translation>
-    </message>
-    <message>
-        <source>Current Updates</source>
-        <translation>การอัปเดตปัจจุบัน</translation>
-    </message>
-    <message>
-        <source>Porting BYD</source>
-        <translation>รองรับรถ BYD</translation>
-    </message>
-    <message>
-        <source>Porting GWM</source>
-        <translation>รองรับรถ GWM</translation>
-    </message>
-    <message>
-        <source>Porting AION</source>
-        <translation>รองรับรถ AION</translation>
-    </message>
-    <message>
-        <source>Porting MG</source>
-        <translation>รองรับรถ MG</translation>
     </message>
 </context>
 <context>
@@ -679,27 +688,8 @@ This may take up to a minute.</source>
         <translation>นักพัฒนา</translation>
     </message>
     <message>
-        <source>Installation Guide</source>
-        <translation>คู่มือการติดตั้ง</translation>
-    </message>
-    <message>
-        <source>NagasPilot</source>
-        <translation>นาคาช่วยขับ</translation>
-    </message>
-    <message>
-        <source>Vehicle Model</source>
-        <translation>รุ่นรถยนต์</translation>
-    </message>
-</context>
-<context>
-    <name>ModelSelector</name>
-    <message>
-        <source>Vehicle Model</source>
-        <translation>รุ่นรถยนต์</translation>
-    </message>
-    <message>
-        <source>Select Car Model</source>
-        <translation>เลือกรุ่นรถยนต์</translation>
+        <source>Firehose</source>
+        <translation>สายยางดับเพลิง</translation>
     </message>
 </context>
 <context>
@@ -961,26 +951,6 @@ This may take up to a minute.</source>
         <source>up to date, last checked %1</source>
         <translation>ล่าสุดแล้ว ตรวจสอบครั้งสุดท้ายเมื่อ %1</translation>
     </message>
-    <message>
-        <source>Onroad/Offroad Mode</source>
-        <translation>โหมดขับ/จอด</translation>
-    </message>
-    <message>
-        <source>Go Offroad</source>
-        <translation>เข้าสู่โหมดจอด</translation>
-    </message>
-    <message>
-        <source>Go Onroad</source>
-        <translation>เข้าสู่โหมดขับ</translation>
-    </message>
-    <message>
-        <source>Are you sure you want to switch mode?</source>
-        <translation>คุณแน่ใจหรือไม่ว่าต้องการเปลี่ยนโหมด?</translation>
-    </message>
-    <message>
-        <source>CONFIRM</source>
-        <translation>ยืนยัน</translation>
-    </message>
 </context>
 <context>
     <name>SshControl</name>
@@ -1071,11 +1041,11 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Record and Upload Driver Camera</source>
-        <translation>บันทึกและอัปโหลดภาพจากกล้องผู้ขับ</translation>
+        <translation>บันทึกและอัปโหลดภาพจากกล้องคนขับ</translation>
     </message>
     <message>
         <source>Upload data from the driver facing camera and help improve the driver monitoring algorithm.</source>
-        <translation>อัปโหลดข้อมูลจากกล้องที่หันหน้าไปทางผู้ขับ และช่วยปรับปรุงอัลกอริธึมการตรวจสอบผู้ขับ</translation>
+        <translation>อัปโหลดข้อมูลจากกล้องที่หันหน้าไปทางคนขับ และช่วยปรับปรุงอัลกอริธึมการตรวจสอบผู้ขับขี่</translation>
     </message>
     <message>
         <source>Disengage on Accelerator Pedal</source>
@@ -1091,7 +1061,7 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>openpilot defaults to driving in &lt;b&gt;chill mode&lt;/b&gt;. Experimental mode enables &lt;b&gt;alpha-level features&lt;/b&gt; that aren&apos;t ready for chill mode. Experimental features are listed below:</source>
-        <translation>โดยปกติ openpilot จะขับใน&lt;b&gt;โหมดชิล&lt;/b&gt; เปิดโหมดทดลองเพื่อใช้&lt;b&gt;ความสามารถในขั้นพัฒนา&lt;/b&gt; ซึ่งยังไม่พร้อมสำหรับโหมดชิล ความสามารถในขั้นพัฒนามีดังนี้</translation>
+        <translation>โดยปกติ openpilot จะขับใน&lt;b&gt;โหมดชิล&lt;/b&gt; เปิดโหมดทดลองเพื่อใช้&lt;b&gt;ความสามารถในขั้นพัฒนา&lt;/b&gt; ซึ่งยังไม่พร้อมสำหรับโหมดชิล ความสามารถในขั้นพัฒนามีดังนี้:</translation>
     </message>
     <message>
         <source>Let the driving model control the gas and brakes. openpilot will drive as it thinks a human would, including stopping for red lights and stop signs. Since the driving model decides the speed to drive, the set speed will only act as an upper bound. This is an alpha quality feature; mistakes should be expected.</source>
@@ -1147,27 +1117,19 @@ This may take up to a minute.</source>
     </message>
     <message>
         <source>Always-On Driver Monitoring</source>
-        <translation>การตรวจสอบผู้ขับตลอดเวลา</translation>
+        <translation>การเฝ้าระวังผู้ขับขี่ตลอดเวลา</translation>
     </message>
     <message>
         <source>Enable driver monitoring even when openpilot is not engaged.</source>
-        <translation>เปิดใช้งานการตรวจสอบผู้ขับแม้เมื่อ openpilot ไม่ได้เข้าควบคุมอยู่</translation>
+        <translation>เปิดใช้งานการเฝ้าระวังผู้ขับขี่แม้เมื่อ openpilot ไม่ได้เข้าควบคุมอยู่</translation>
     </message>
     <message>
         <source>Use the openpilot system for adaptive cruise control and lane keep driver assistance. Your attention is required at all times to use this feature.</source>
-        <translation>ใช้ระบบ openpilot สำหรับควบคุมครูซและความเลน ต้องมีสมาธิตลอดเวลา</translation>
+        <translation type="unfinished"></translation>
     </message>
     <message>
         <source> Changing this setting will restart openpilot if the car is powered on.</source>
-        <translation> การเปลี่ยนจะรีสตาร์ท openpilot หากรถยังติดเครื่องอยู่</translation>
-    </message>
-    <message>
-        <source>Disable Logging</source>
-        <translation>ปิดการบันทึกข้อมูล</translation>
-    </message>
-    <message>
-        <source>Disable Updates</source>
-        <translation>ปิดการอัปเดต</translation>
+        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
@@ -1212,48 +1174,12 @@ This may take up to a minute.</source>
         <translation>เปิด</translation>
     </message>
     <message>
-        <source>Click below to get more information about us</source>
-        <translation>คลิกด้านล่างเพื่อรับข้อมูลเพิ่มเติมเกี่ยวกับเรา</translation>
+        <source>Maximize your training data uploads to improve openpilot&apos;s driving models.</source>
+        <translation>อัปโหลดข้อมูลการฝึกฝนให้ได้มากที่สุด เพื่อพัฒนาโมเดลการขับขี่ของ openpilot</translation>
     </message>
     <message>
-        <source>Installation Guide</source>
-        <translation>คู่มือการติดตั้ง</translation>
-    </message>
-    <message>
-        <source>Scan QR code for YouTube video</source>
-        <translation>สแกน QR code สำหรับวิดีโอ YouTube</translation>
-    </message>
-    <message>
-        <source>Subscribe and like our channel</source>
-        <translation>สมัครสมาชิกและกดไลค์ช่องของเรา</translation>
-    </message>
-    <message>
-        <source>Enjoy The Ride !!!</source>
-        <translation>ขับขี่อย่างสนุกสนาน !!!</translation>
-    </message>
-    <message>
-        <source>QR Code</source>
-        <translation>QR Code</translation>
-    </message>
-    <message>
-        <source>Current Updates</source>
-        <translation>การอัปเดตปัจจุบัน</translation>
-    </message>
-    <message>
-        <source>Porting BYD</source>
-        <translation>รองรับรถยนต์ BYD</translation>
-    </message>
-    <message>
-        <source>Porting GWM</source>
-        <translation>รองรับรถยนต์ GWM</translation>
-    </message>
-    <message>
-        <source>Porting AION</source>
-        <translation>รองรับรถยนต์ AION</translation>
-    </message>
-    <message>
-        <source>Porting MG</source>
-        <translation>รองรับรถยนต์ MG</translation>
+        <source>&lt;span style=&apos;font-family: &quot;Noto Color Emoji&quot;;&apos;&gt;🔥&lt;/span&gt; Firehose Mode &lt;span style=&apos;font-family: Noto Color Emoji;&apos;&gt;🔥&lt;/span&gt;</source>
+        <translation>&lt;span style=&apos;font-family: &quot;Noto Color Emoji&quot;;&apos;&gt;🔥&lt;/span&gt; โหมดสายยางดับเพลิง &lt;span style=&apos;font-family: Noto Color Emoji;&apos;&gt;🔥&lt;/span&gt;</translation>
     </message>
 </context>
 <context>
@@ -1277,537 +1203,6 @@ This may take up to a minute.</source>
     <message>
         <source>Forget</source>
         <translation>เลิกใช้</translation>
-    </message>
-</context>
-<context>
-    <name>DPPanel</name>
-    <message>
-        <source>Toyota / Lexus</source>
-        <translation>Toyota / Lexus</translation>
-    </message>
-    <message>
-        <source>Enable Door Auto Lock/Unlock</source>
-        <translation>เปิดระบบล็อค/ปลดล็อคประตูอัตโนมัติ</translation>
-    </message>
-    <message>
-        <source>Enable TSS1 SnG Mod</source>
-        <translation>เปิด TSS1 SnG Mod</translation>
-    </message>
-    <message>
-        <source>Use Stock Longitudinal Control</source>
-        <translation>ใช้ระบบควบคุมเร่ง/เบรคจากโรงงาน</translation>
-    </message>
-    <message>
-        <source>VW / Audi / Skoda</source>
-        <translation>VW / Audi / Skoda</translation>
-    </message>
-    <message>
-        <source>Enable MQB A0 SnG Mod</source>
-        <translation>เปิด MQB A0 SnG Mod</translation>
-    </message>
-    <message>
-        <source>PQ Steering Patch</source>
-        <translation>แพทช์พวงมาลัย PQ</translation>
-    </message>
-    <message>
-        <source>Avoid EPS Lockout</source>
-        <translation>หลีกเลี่ยงการล็อค EPS</translation>
-    </message>
-    <message>
-        <source>Mazda</source>
-        <translation>Mazda</translation>
-    </message>
-    <message>
-        <source>Lateral Ctrl</source>
-        <translation>ควบคุมทิศทาง</translation>
-    </message>
-    <message>
-        <source>============== Lateral Control ==============</source>
-        <translation>============== ควบคุมทิศทาง ==============</translation>
-    </message>
-    <message>
-        <source>Always-on Lane Keeping Assist (ALKA)</source>
-        <translation>ระบบช่วยรักษาเลนแบบเปิดตลอด (ALKA)</translation>
-    </message>
-    <message>
-        <source>LCA Speed</source>
-        <translation>ความเร็วเปลี่ยนเลน</translation>
-    </message>
-    <message>
-        <source>Off = Disable LCA
-1 mph ≈ 1.2 km/h</source>
-        <translation>ปิด = ไม่ใช้ LCA
-1 mph ≈ 1.2 km/h</translation>
-    </message>
-    <message>
-        <source> mph</source>
-        <translation> mph</translation>
-    </message>
-    <message>
-        <source> - Auto Lane Change after</source>
-        <translation> - เปลี่ยนเลนอัตโนมัติหลัง</translation>
-    </message>
-    <message>
-        <source>Off = Disable Auto Lane Change.</source>
-        <translation>ปิด = ไม่ใช้เปลี่ยนเลนอัตโนมัติ</translation>
-    </message>
-    <message>
-        <source> sec</source>
-        <translation> วิ</translation>
-    </message>
-    <message>
-        <source>Longitudinal Ctrl</source>
-        <translation>ควบคุมเร่ง/เบรค</translation>
-    </message>
-    <message>
-        <source>=========== Longitudinal Control ===========</source>
-        <translation>=========== ควบคุมเร่ง/เบรค ===========</translation>
-    </message>
-    <message>
-        <source>Use External Radar</source>
-        <translation>ใช้เรดาร์ภายนอก</translation>
-    </message>
-    <message>
-        <source>See https://github.com/eFiniLan/openpilot-ext-radar-addon for more information.</source>
-        <translation>ดูข้อมูลเพิ่มเติมที่ github.com/eFiniLan/openpilot-ext-radar-addon</translation>
-    </message>
-    <message>
-        <source>Enable Adaptive Coasting Mode (ACM)</source>
-        <translation>เปิดโหมดลื่นไถลปรับตัว (ACM)</translation>
-    </message>
-    <message>
-        <source>Adaptive Coasting Mode (ACM) reduces braking to allow smoother coasting when appropriate.
-DOES NOT WORK with Experimental Mode enabled.</source>
-        <translation>โหมด ACM ลดการเบรคเพื่อให้ลื่นไถลนุ่มนวลขึ้น
-ใช้ไม่ได้กับโหมดทดลอง</translation>
-    </message>
-    <message>
-        <source>Downhill Only</source>
-        <translation>เฉพาะลงเนิน</translation>
-    </message>
-    <message>
-        <source>Limited to downhill driving.</source>
-        <translation>จำกัดเฉพาะการขับลงเนิน</translation>
-    </message>
-    <message>
-        <source>Adaptive Experimental Mode (AEM)</source>
-        <translation>โหมดทดลองปรับตัว (AEM)</translation>
-    </message>
-    <message>
-        <source>Adaptive mode switcher between ACC and Blended based on driving context.</source>
-        <translation>สลับโหมดระหว่าง ACC และ Blended ตามสถานการณ์</translation>
-    </message>
-    <message>
-        <source>Enable No Gas Gating (NoGG)</source>
-        <translation>เปิดระบบไม่จำกัดคันเร่ง (NoGG)</translation>
-    </message>
-    <message>
-        <source>Allows the car to accelerate in situations where Gas Gating would normally prevent it, like approaching traffic lights or exits.</source>
-        <translation>อนุญาตให้รถเร่งในสถานการณ์ที่ Gas Gating จะป้องกันปกติ เช่น เข้าใกล้ไฟแดงหรือทางออก</translation>
-    </message>
-    <message>
-        <source>UI</source>
-        <translation>หน้าจอ</translation>
-    </message>
-    <message>
-        <source>============== User Interface ===============</source>
-        <translation>============== หน้าจอ ===============</translation>
-    </message>
-    <message>
-        <source>Display Radar Tracks</source>
-        <translation>แสดงร่องรอยเรดาร์</translation>
-    </message>
-    <message>
-        <source>Why not?</source>
-        <translation>ทำไมไม่ล่ะ?</translation>
-    </message>
-    <message>
-        <source>Std.</source>
-        <translation>มาตรฐาน</translation>
-    </message>
-    <message>
-        <source>MAIN+</source>
-        <translation>MAIN+</translation>
-    </message>
-    <message>
-        <source>OP+</source>
-        <translation>OP+</translation>
-    </message>
-    <message>
-        <source>MAIN-</source>
-        <translation>MAIN-</translation>
-    </message>
-    <message>
-        <source>OP-</source>
-        <translation>OP-</translation>
-    </message>
-    <message>
-        <source>Display Mode</source>
-        <translation>โหมดแสดงผล</translation>
-    </message>
-    <message>
-        <source>Std. - Stock behavior.
-MAIN+ - ACC MAIN on = Display ON.
-OP+ - OP enabled = Display ON.
-MAIN- - ACC MAIN on = Display OFF
-OP- - OP enabled = Display OFF.</source>
-        <translation>มาตรฐาน - พฤติกรรมเดิม
-MAIN+ - ACC MAIN เปิด = จอแสดงผลเปิด
-OP+ - OP เปิด = จอแสดงผลเปิด
-MAIN- - ACC MAIN เปิด = จอแสดงผลปิด
-OP- - OP เปิด = จอแสดงผลปิด</translation>
-    </message>
-    <message>
-        <source>Hide HUD When Moves above</source>
-        <translation>ซ่อน HUD เมื่อเคลื่อนที่เกิน</translation>
-    </message>
-    <message>
-        <source>To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.
-Off = Stock Behavior
-1 km/h ≈ 0.6 mph</source>
-        <translation>ป้องกันหน้าจอไหม้ โดยซ่อนความเร็ว และไอคอนต่างๆ เมื่อรถเคลื่อนที่
-ปิด = พฤติกรรมเดิม
-1 km/h ≈ 0.6 mph</translation>
-    </message>
-    <message>
-        <source> km/h</source>
-        <translation> km/h</translation>
-    </message>
-    <message>
-        <source>Device</source>
-        <translation>อุปกรณ์</translation>
-    </message>
-    <message>
-        <source>============== Device Control ===============</source>
-        <translation>============== อุปกรณ์ ===============</translation>
-    </message>
-    <message>
-        <source>Allow openpilot to obey right-hand traffic conventions on right driver seat.</source>
-        <translation>ให้ openpilot ปฏิบัติตามกฎจราจรฝั่งขวาสำหรับผู้ขับฝั่งขวา</translation>
-    </message>
-    <message>
-        <source>Disable Driver Monitoring</source>
-        <translation>ปิดการตรวจสอบผู้ขับ</translation>
-    </message>
-    <message>
-        <source>Enable Beep (Warning)</source>
-        <translation>เปิดเสียงบี๊บ (เตือน)</translation>
-    </message>
-    <message>
-        <source>Warning</source>
-        <translation>เตือน</translation>
-    </message>
-    <message>
-        <source>Audible Alert Mode</source>
-        <translation>โหมดเตือนเสียง</translation>
-    </message>
-    <message>
-        <source>Off - Does not emit any sound at all.
-Warning - Only emits sound when there is a warning.
-Std. - Standard behavior with all sounds.</source>
-        <translation>ปิด - ไม่ส่งเสียงเลย
-เตือน - ส่งเสียงเฉพาะเมื่อมีการเตือน
-มาตรฐาน - พฤติกรรมปกติส่งเสียงทั้งหมด</translation>
-    </message>
-    <message>
-        <source>Auto Shutdown In</source>
-        <translation>ปิดเครื่องอัตโนมัติใน</translation>
-    </message>
-    <message>
-        <source>0 mins = Immediately</source>
-        <translation>0 นาที = ทันที</translation>
-    </message>
-    <message>
-        <source> mins</source>
-        <translation> นาที</translation>
-    </message>
-    <message>
-        <source>Reset nagaspilot settings</source>
-        <translation>รีเซ็ตการตั้งค่า nagaspilot</translation>
-    </message>
-    <message>
-        <source>RESET</source>
-        <translation>รีเซ็ต</translation>
-    </message>
-    <message>
-        <source>Are you sure you want to reset all settings?</source>
-        <translation>แน่ใจว่าต้องการรีเซ็ตการตั้งค่าทั้งหมด?</translation>
-    </message>
-    <message>
-        <source>Reset</source>
-        <translation>รีเซ็ต</translation>
-    </message>
-</context>
-<context>
-    <name>DPPanel</name>
-    <message>
-        <source>BrownPanda Mode</source>
-        <translation>บราวน์แพนด้า โหมด</translation>
-    </message>
-    <message>
-        <source>OVERRIDE</source>
-        <translation>แทนที่</translation>
-    </message>
-    <message>
-        <source>INTERRUPT</source>
-        <translation>ขัดจังหวะ</translation>
-    </message>
-    <message>
-        <source>OEM</source>
-        <translation>โรงงาน</translation>
-    </message>
-</context>
-<context>
-    <name>NPPanel</name>
-    <message>
-        <source>■ Lateral Control</source>
-        <translation>■ ควบคุมทิศทาง</translation>
-    </message>
-    <message>
-        <source>  └ Hand Off Enable</source>
-        <translation>  └ เปิดใช้งานขับไม่จับพวงมาลัย</translation>
-    </message>
-    <message>
-        <source>Enable hand-off driving mode</source>
-        <translation>เปิดใช้งานโหมดขับไม่จับพวงมาลัย</translation>
-    </message>
-    <message>
-        <source>■ Longitudinal Control</source>
-        <translation>■ ควบคุมเร่ง/เบรค</translation>
-    </message>
-    <message>
-        <source>■ User Interface</source>
-        <translation>■ ส่วนติดต่อผู้ใช้</translation>
-    </message>
-    <message>
-        <source>■ Device Control</source>
-        <translation>■ ควบคุมอุปกรณ์</translation>
-    </message>
-    <message>
-        <source>============== BrownPanda Mode ==============</source>
-        <translation>============== โหมดบราวน์แพนด้า ==============</translation>
-    </message>
-    <message>
-        <source>Lateral Mode</source>
-        <translation>โหมดควบคุมทิศทาง</translation>
-    </message>
-    <message>
-        <source>Off</source>
-        <translation>ปิด</translation>
-    </message>
-    <message>
-        <source>Lanekeep</source>
-        <translation>รักษาเลน</translation>
-    </message>
-    <message>
-        <source>Laneless</source>
-        <translation>ไร้เลน</translation>
-    </message>
-    <message>
-        <source>DLP</source>
-        <translation>DLP</translation>
-    </message>
-    <message>
-        <source>Off: Manual only
-Lanekeep: Basic Lane Keeping
-Laneless: No Strict Lanes
-DLP: Dynamic Lane Profile</source>
-        <translation>ปิด: ขับด้วยมือเท่านั้น
-รักษาเลน: รักษาเลนพื้นฐาน
-ไร้เลน: ไม่ยึดเลนเคร่งครัด
-DLP: โปรไฟล์เลนแบบไดนามิก</translation>
-    </message>
-    <message>
-        <source>Road Edge Detection</source>
-        <translation>ตรวจจับขอบถนน</translation>
-    </message>
-    <message>
-        <source>Block lane change when road edge detected</source>
-        <translation>ป้องกันการเปลี่ยนเลนเมื่อตรวจพบขอบถนน</translation>
-    </message>
-    <message>
-        <source>Laneless on Curve</source>
-        <translation>ไร้เลนในโค้ง</translation>
-    </message>
-    <message>
-        <source>Force using Laneless on curvature instead of Lanekeep</source>
-        <translation>บังคับใช้ไร้เลนในโค้งแทนการรักษาเลน</translation>
-    </message>
-    <!-- Custom offsets removed - using fixed engineering values (0.00) only -->
-    <message>
-        <source>ALC Delay (>=60km/h)</source>
-        <translation>ความล่าช้า ALC (>=60km/h)</translation>
-    </message>
-    <message>
-        <source>Auto Lane Change delay</source>
-        <translation>ความล่าช้าการเปลี่ยนเลนอัตโนมัติ</translation>
-    </message>
-    <!-- Offset controls removed - using fixed values (0.00) only -->
-    <message>
-        <source>Cruise Profile (DCP)</source>
-        <translation>โปรไฟล์ครูซ (DCP)</translation>
-    </message>
-    <message>
-        <source>Highway</source>
-        <translation>ทางหลวง</translation>
-    </message>
-    <message>
-        <source>Urban</source>
-        <translation>เมือง</translation>
-    </message>
-    <message>
-        <source>Off: None
-Highway: Stable ACC
-Urban: Reactive
-DCP: Adaptive</source>
-        <translation>ปิด: ไม่มี
-ทางหลวง: ACC เสถียร
-เมือง: ตอบสนอง
-DCP: ปรับตัว</translation>
-    </message>
-    <message>
-        <source>External Radar</source>
-        <translation>เรดาร์ภายนอก</translation>
-    </message>
-    <message>
-        <source>Use external radar addon.</source>
-        <translation>ใช้เรดาร์ภายนอกเสริม</translation>
-    </message>
-    <message>
-        <source>Adaptive Coasting (ACM)</source>
-        <translation>การเป็นด่างแบบปรับตัว (ACM)</translation>
-    </message>
-    <message>
-        <source>Smoother coasting. NOT with Experimental!</source>
-        <translation>การเป็นด่างที่นุ่มนวล ห้ามใช้กับโหมดทดลอง!</translation>
-    </message>
-    <message>
-        <source>Downhill Only</source>
-        <translation>ทางลงเท่านั้น</translation>
-    </message>
-    <message>
-        <source>Downhill driving only.</source>
-        <translation>สำหรับการขับขี่ทางลงเท่านั้น</translation>
-    </message>
-    <message>
-        <source>Smooth Acceleration</source>
-        <translation>การเร่งที่นุ่มนวล</translation>
-    </message>
-    <message>
-        <source>Continue accelerating smoothly through traffic lights and highway merges</source>
-        <translation>เร่งอย่างต่อเนื่องนุ่มนวลผ่านไฟแดงและการรวมเลนทางหลวง</translation>
-    </message>
-    <message>
-        <source>Display Radar Tracks</source>
-        <translation>แสดงร่องรอยเรดาร์</translation>
-    </message>
-    <message>
-        <source>Rainbow Driving Path</source>
-        <translation>เส้นทางขับสีรุ้ง</translation>
-    </message>
-    <message>
-        <source>After rainning, there will be Rainbow</source>
-        <translation>หลังฝนตกจะมีสีรุ้ง</translation>
-    </message>
-    <!-- Display Mode translations removed - reverted to original openpilot behavior -->
-    <message>
-        <source>Hide HUD When Moves above</source>
-        <translation>ซ่อน HUD เมื่อเคลื่อนที่เกิน</translation>
-    </message>
-    <message>
-        <source>To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.
-Off = Stock Behavior
-1 km/h ≈ 0.6 mph</source>
-        <translation>เพื่อป้องกันหน้าจอไหม้ ซ่อนความเร็ว ความเร็วสูงสุด และไอคอนการบังคับเมื่อรถเคลื่อนที่
-ปิด = พฤติกรรมเดิม
-1 km/h ≈ 0.6 mph</translation>
-    </message>
-    <message>
-        <source>Enable Right-Hand Drive Mode</source>
-        <translation>เปิดโหมดขับรถด้านขวา</translation>
-    </message>
-    <message>
-        <source>Allow openpilot to obey right-hand traffic conventions on right driver seat.</source>
-        <translation>อนุญาตให้ openpilot เชื่อฟังกฎจราจรมือขวาบนเบาะผู้ขับด้านขวา</translation>
-    </message>
-    <message>
-        <source>Disable Driver Monitoring</source>
-        <translation>ปิดการตรวจสอบผู้ขับ</translation>
-    </message>
-    <message>
-        <source>Enable Beep (Warning)</source>
-        <translation>เปิดเสียงบี๊บ (เตือน)</translation>
-    </message>
-    <message>
-        <source>Audible Alert Mode</source>
-        <translation>โหมดเตือนเสียง</translation>
-    </message>
-    <message>
-        <source>Warning</source>
-        <translation>เตือน</translation>
-    </message>
-    <message>
-        <source>Off - Does not emit any sound at all.
-Warning - Only emits sound when there is a warning.
-Std. - Standard behavior with all sounds.</source>
-        <translation>ปิด - ไม่ส่งเสียงเลย
-เตือน - ส่งเสียงเฉพาะเมื่อมีการเตือน
-มาตรฐาน - พฤติกรรมปกติส่งเสียงทั้งหมด</translation>
-    </message>
-    <message>
-        <source>Auto Shutdown In</source>
-        <translation>ปิดอัตโนมัติใน</translation>
-    </message>
-    <message>
-        <source>0 mins = Immediately</source>
-        <translation>0 นาที = ทันที</translation>
-    </message>
-    <message>
-        <source> mins</source>
-        <translation> นาที</translation>
-    </message>
-    <message>
-        <source>BrownPanda Mode</source>
-        <translation>โหมดบราวน์แพนด้า</translation>
-    </message>
-    <message>
-        <source>OEM - BrownPanda uses OEM settings (0).
-INTERRUPT - BrownPanda interrupts the stock system (1).
-OVERRIDE - BrownPanda overrides all control (2).</source>
-        <translation>OEM - BrownPanda ใช้การตั้งค่าจากโรงงาน (0)
-INTERRUPT - BrownPanda ขัดจังหวะระบบเดิม (1)
-OVERRIDE - BrownPanda แทนที่การควบคุมทั้งหมด (2)</translation>
-    </message>
-    <message>
-        <source>Reset nagaspilot settings</source>
-        <translation>รีเซ็ตการตั้งค่า nagaspilot</translation>
-    </message>
-    <message>
-        <source>RESET</source>
-        <translation>รีเซ็ต</translation>
-    </message>
-    <message>
-        <source>Are you sure you want to reset all settings?</source>
-        <translation>คุณแน่ใจหรือไม่ว่าต้องการรีเซ็ตการตั้งค่าทั้งหมด?</translation>
-    </message>
-    <message>
-        <source>Reset</source>
-        <translation>รีเซ็ต</translation>
-    </message>
-</context>
-<context>
-    <name>PrimeAdWidget</name>
-    <message>
-        <source>Current Updates:</source>
-        <translation>การอัปเดตปัจจุบัน:</translation>
-    </message>
-    <message>
-        <source>Porting BYD_ATTO3</source>
-        <translation>กำลังรองรับ BYD_ATTO3</translation>
-    </message>
-    <message>
-        <source>Porting DEEPAL_S05</source>
-        <translation>กำลังรองรับ DEEPAL_S05</translation>
     </message>
 </context>
 </TS>

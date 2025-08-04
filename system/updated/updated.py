@@ -86,7 +86,7 @@ def set_consistent_flag(consistent: bool) -> None:
 
 def parse_release_notes(basedir: str) -> bytes:
   try:
-    with open(os.path.join(basedir, "CHANGELOGS.md"), "rb") as f:
+    with open(os.path.join(basedir, "RELEASES.md"), "rb") as f:
       r = f.read().split(b'\n\n', 1)[0]  # Slice latest release notes
     try:
       return bytes(parse_markdown(r.decode("utf-8")), encoding="utf-8")
@@ -333,13 +333,11 @@ class Updater:
         extra_text = exception
       set_offroad_alert("Offroad_UpdateFailed", True, extra_text=extra_text)
     elif failed_count > 0:
-      # BrownPanda: Commented out connectivity alerts
-      # if dt.days > DAYS_NO_CONNECTIVITY_MAX:
-      #   set_offroad_alert("Offroad_ConnectivityNeeded", True)
-      # elif dt.days > DAYS_NO_CONNECTIVITY_PROMPT:
-      #   remaining = max(DAYS_NO_CONNECTIVITY_MAX - dt.days, 1)
-      #   set_offroad_alert("Offroad_ConnectivityNeededPrompt", True, extra_text=f"{remaining} day{'' if remaining == 1 else 's'}.")
-      pass
+      if dt.days > DAYS_NO_CONNECTIVITY_MAX:
+        set_offroad_alert("Offroad_ConnectivityNeeded", True)
+      elif dt.days > DAYS_NO_CONNECTIVITY_PROMPT:
+        remaining = max(DAYS_NO_CONNECTIVITY_MAX - dt.days, 1)
+        set_offroad_alert("Offroad_ConnectivityNeededPrompt", True, extra_text=f"{remaining} day{'' if remaining == 1 else 's'}.")
 
   def check_for_update(self) -> None:
     cloudlog.info("checking for updates")

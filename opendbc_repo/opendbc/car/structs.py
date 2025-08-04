@@ -18,19 +18,3 @@ CarStateT = capnp.lib.capnp._StructModule
 RadarDataT = capnp.lib.capnp._StructModule
 CarControlT = capnp.lib.capnp._StructModule
 CarParamsT = capnp.lib.capnp._StructModule
-
-class NPFlags:
-  # Longitudinal Control Flags (0-15)
-  ACM = 1                    # Adaptive Cruise Module
-  ACM_DOWNHILL = 2          # ACM downhill mode
-  AEM = 4                   # Adaptive Engagement Module
-  
-  # Lateral Control Flags (16-31)
-  LateralALKA = 16          # Lateral Always Keep Lane Assist
-  
-  # Car-Specific Flags (32-255)
-  ExtRadar = 32             # External radar support
-  
-
-# Replace DPFlags with NPFlags
-DPFlags = NPFlags

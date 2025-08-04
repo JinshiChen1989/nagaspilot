@@ -4,13 +4,13 @@
     "severity": 0
   },
   "Offroad_ConnectivityNeededPrompt": {
-    "text": "BrownPanda: Internet connection optional.",
+    "text": "Immediately connect to the internet to check for updates. If you do not connect to the internet, openpilot won't engage in %1",
     "severity": 0,
-    "_comment": "BrownPanda: Modified to remove blocking behavior"
+    "_comment": "Set extra field to number of days"
   },
   "Offroad_ConnectivityNeeded": {
-    "text": "BrownPanda: Internet connection optional.",
-    "severity": 0
+    "text": "Connect to internet to check for updates. openpilot won't automatically start until it connects to internet to check for updates.",
+    "severity": 1
   },
   "Offroad_UpdateFailed": {
     "text": "Unable to download updates\n%1",
@@ -26,8 +26,8 @@
     "severity": 0
   },
   "Offroad_UnofficialHardware": {
-    "text": "BrownPanda device running normally.",
-    "severity": 0
+    "text": "Device failed to register. It will not connect to or upload to comma.ai servers, and receives no support from comma.ai. If this is an official device, visit https://comma.ai/support.",
+    "severity": 1
   },
   "Offroad_StorageMissing": {
     "text": "NVMe drive not mounted.",

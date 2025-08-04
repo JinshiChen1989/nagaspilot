@@ -35,7 +35,7 @@ class PanelType(IntEnum):
   NETWORK = 1
   TOGGLES = 2
   SOFTWARE = 3
-  INSTALLATION_GUIDE = 4
+  FIREHOSE = 4
   DEVELOPER = 5
 
 
@@ -57,7 +57,7 @@ class SettingsLayout:
       PanelType.DEVICE: PanelInfo("Device", DeviceLayout(), rl.Rectangle(0, 0, 0, 0)),
       PanelType.TOGGLES: PanelInfo("Toggles", TogglesLayout(), rl.Rectangle(0, 0, 0, 0)),
       PanelType.SOFTWARE: PanelInfo("Software", SoftwareLayout(), rl.Rectangle(0, 0, 0, 0)),
-      PanelType.INSTALLATION_GUIDE: PanelInfo("Installation Guide", None, rl.Rectangle(0, 0, 0, 0)),
+      PanelType.FIREHOSE: PanelInfo("Firehose", None, rl.Rectangle(0, 0, 0, 0)),
       PanelType.NETWORK: PanelInfo("Network", None, rl.Rectangle(0, 0, 0, 0)),
       PanelType.DEVELOPER: PanelInfo("Developer", DeveloperLayout(), rl.Rectangle(0, 0, 0, 0)),
     }

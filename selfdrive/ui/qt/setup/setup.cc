@@ -410,7 +410,7 @@ Setup::Setup(QWidget *parent) : QStackedWidget(parent) {
   buffer << std::ifstream("/sys/class/hwmon/hwmon1/in1_input").rdbuf();
   float voltage = (float)std::atoi(buffer.str().c_str()) / 1000.;
   if (voltage < 7) {
-    // addWidget(low_voltage()); //Under Voltage Warning Popup during Setup
+    addWidget(low_voltage());
   }
 
   addWidget(getting_started());

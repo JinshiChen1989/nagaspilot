@@ -2283,9 +2283,6 @@ struct LiveTorqueParametersData {
   useParams @12 :Bool;
 }
 
-# HOD monitoring integrated directly in controlsd.py (following SSD pattern)
-
-
 struct LiveDelayData {
   lateralDelay @0 :Float32;
   validBlocks @1 :Int32;
@@ -2488,63 +2485,6 @@ struct Touch {
   value @4 :Int32;
 }
 
-struct YOLOv8Detections @0xa1b2c3d4e5f6789a {
-  frameId @0 :UInt32;
-  timestampSof @1 :UInt64;
-  detectionCount @2 :UInt16;
-  cameraSource @3 :Text;  # "road" or "wide"
-  
-  struct Detection {
-    bbox @0 :BBox;
-    confidence @1 :Float32;
-    classId @2 :UInt8;
-    className @3 :Text;
-    consumer @4 :Text;      # "EODS" or "SOC"
-    cameraSource @5 :Text; # "road" or "wide"
-    position3D @6 :Position3D;  # Only populated for EODS classes
-    threatLevel @7 :UInt8;      # 0-5, only for EODS classes
-    
-    struct BBox {
-      x1 @0 :Float32;
-      y1 @1 :Float32; 
-      x2 @2 :Float32;
-      y2 @3 :Float32;
-    }
-    
-    struct Position3D {
-      x @0 :Float32;  # Forward distance (meters)
-      y @1 :Float32;  # Lateral position (meters)
-      z @2 :Float32;  # Vertical position (meters, typically 0)
-    }
-  }
-  
-  detections @4 :List(Detection);
-}
-
-struct EODS @0xb1c2d3e4f5a67890 {
-  enabled @0 :Bool;           # EODS system enabled
-  active @1 :Bool;            # EODS currently taking action
-  action @2 :Text;            # Current action: EMERGENCY_STOP, HARD_BRAKE, SLOW_DOWN, MONITOR
-  speedTarget @3 :Float32;    # Target speed (m/s) for emergency response
-  reason @4 :Text;            # Human-readable reason for action
-  threatLevel @5 :UInt8;      # Current highest threat level (0-5)
-  objectDistance @6 :Float32; # Distance to closest emergency object (meters)
-  objectClass @7 :Text;       # Class of emergency object (person, horse, etc.)
-  responseTime @8 :UInt64;    # Time since detection (nanoseconds)
-}
-
-struct SOC @0xc1d2e3f4a5b67890 {
-  enabled @0 :Bool;            # SOC system enabled
-  active @1 :Bool;             # SOC currently applying offset
-  lateralOffset @2 :Float32;   # Current lateral offset (meters)
-  targetOffset @3 :Float32;    # Target lateral offset (meters)
-  reason @4 :Text;             # Human-readable reason for offset
-  vehicleCount @5 :UInt8;      # Number of large vehicles detected
-  avoidanceDistance @6 :Float32; # Distance to closest large vehicle (meters)
-  vehicleType @7 :Text;        # Type of vehicle being avoided (bus/truck)
-  offsetRate @8 :Float32;      # Rate of offset change (m/s)
-}
-
 struct Event {
   logMonoTime @0 :UInt64;  # nanoseconds
   valid @67 :Bool = true;
@@ -2595,14 +2535,10 @@ struct Event {
     onroadEvents @134: List(OnroadEvent);
     carParams @69: Car.CarParams;
     driverMonitoringState @71: DriverMonitoringState;
-    # hodMonitoringState integrated directly in controlsd.py (following SSD pattern)
     livePose @129 :LivePose;
     modelV2 @75 :ModelDataV2;
     drivingModelData @128 :DrivingModelData;
     driverStateV2 @92 :DriverStateV2;
-    yolov8Detections @147 :YOLOv8Detections;
-    eods @148 :EODS;
-    soc @149 :SOC;
 
     # camera stuff, each camera state has a matching encode idx
     roadCameraState @2 :FrameData;
@@ -2666,8 +2602,8 @@ struct Event {
     # DO change the name of the field and struct
     # DON'T change the ID (e.g. @107)
     # DON'T change which struct it points to
-    npControlsState @107 :Custom.NpControlsState;
-    modelExt @108 :Custom.ModelExt;
+    customReserved0 @107 :Custom.CustomReserved0;
+    customReserved1 @108 :Custom.CustomReserved1;
     customReserved2 @109 :Custom.CustomReserved2;
     customReserved3 @110 :Custom.CustomReserved3;
     customReserved4 @111 :Custom.CustomReserved4;

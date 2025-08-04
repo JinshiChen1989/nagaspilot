@@ -4,8 +4,6 @@
 #include <QMouseEvent>
 #include <QStackedWidget>
 #include <QVBoxLayout>
-#include <QDateTime>
-#include <QTimeZone>
 
 #include "selfdrive/ui/qt/offroad/experimental_mode.h"
 #include "selfdrive/ui/qt/util.h"
@@ -114,37 +112,17 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   update_notif = new QPushButton(tr("UPDATE"));
   update_notif->setVisible(false);
   update_notif->setStyleSheet("background-color: #364DEF;");
-
   QObject::connect(update_notif, &QPushButton::clicked, [=]() { center_layout->setCurrentIndex(1); });
-  // Hidden from UI: UPDATE button functionality preserved but not displayed
-  // header_layout->addWidget(update_notif, 0, Qt::AlignHCenter | Qt::AlignLeft);
+  header_layout->addWidget(update_notif, 0, Qt::AlignHCenter | Qt::AlignLeft);
 
   alert_notif = new QPushButton();
   alert_notif->setVisible(false);
   alert_notif->setStyleSheet("background-color: #E22C2C;");
-
   QObject::connect(alert_notif, &QPushButton::clicked, [=] { center_layout->setCurrentIndex(2); });
   header_layout->addWidget(alert_notif, 0, Qt::AlignHCenter | Qt::AlignLeft);
 
-  // Add date label on left side after alerts with bigger text
-  date_label = new QLabel();
-  date_label->setStyleSheet("font-size: 50px; font-weight: 500; color: #FFFFFF; margin-left: 30px;");
-  date_label->setAlignment(Qt::AlignCenter);
-  header_layout->addWidget(date_label, 0, Qt::AlignVCenter | Qt::AlignLeft);
-
-  // Add spacer to push time to the right
-  header_layout->addStretch();
-
-  // Add time label on right side with bigger text (hours:minutes only)
-  time_label = new QLabel();
-  time_label->setStyleSheet("font-size: 50px; font-weight: 500; color: #FFFFFF; margin-right: 20px;");
-  time_label->setAlignment(Qt::AlignCenter);
-  header_layout->addWidget(time_label, 0, Qt::AlignVCenter | Qt::AlignRight);
-
   version = new ElidedLabel();
-  version->setStyleSheet("margin-left: 10px;");
-  // Hidden from UI: Version label functionality preserved but not displayed
-  // header_layout->addWidget(version, 0, Qt::AlignVCenter | Qt::AlignRight);
+  header_layout->addWidget(version, 0, Qt::AlignHCenter | Qt::AlignRight);
 
   main_layout->addLayout(header_layout);
 
@@ -233,7 +211,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
 
 void OffroadHome::showEvent(QShowEvent *event) {
   refresh();
-  timer->start(1000); // Update every 1 second for time display
+  timer->start(10 * 1000);
 }
 
 void OffroadHome::hideEvent(QHideEvent *event) {
@@ -243,35 +221,21 @@ void OffroadHome::hideEvent(QHideEvent *event) {
 void OffroadHome::refresh() {
   version->setText(getBrand() + " " +  QString::fromStdString(params.get("UpdaterCurrentDescription")));
 
-  // Update time and date with Bangkok timezone (GMT+7)
-  QTimeZone bangkokTimeZone("Asia/Bangkok");
-  QDateTime current = QDateTime::currentDateTime().toTimeZone(bangkokTimeZone);
-  QString timeString = current.toString("hh:mm"); // Hours and minutes only
-  QString dateString = current.toString("yyyy/MM/dd");
-  
-  // Update separate labels
-  time_label->setText(timeString);
-  date_label->setText(dateString);
-
   bool updateAvailable = update_widget->refresh();
   int alerts = alerts_widget->refresh();
 
-  // pop-up new notification - DISABLED AUTO-POPUP
+  // pop-up new notification
   int idx = center_layout->currentIndex();
   if (!updateAvailable && !alerts) {
     idx = 0;
-  } 
-  // Commented out auto-popup for updates to prevent unwanted popups
-  // else if (updateAvailable && (!update_notif->isVisible() || (!alerts && idx == 2))) {
-  //   idx = 1;
-  // } 
-  else if (alerts && (!alert_notif->isVisible() || (!updateAvailable && idx == 1))) {
+  } else if (updateAvailable && (!update_notif->isVisible() || (!alerts && idx == 2))) {
+    idx = 1;
+  } else if (alerts && (!alert_notif->isVisible() || (!updateAvailable && idx == 1))) {
     idx = 2;
   }
   center_layout->setCurrentIndex(idx);
 
-  // Keep update detection working but don't show UPDATE button
-  // update_notif->setVisible(updateAvailable);
+  update_notif->setVisible(updateAvailable);
   alert_notif->setVisible(alerts);
   if (alerts) {
     alert_notif->setText(QString::number(alerts) + (alerts > 1 ? tr(" ALERTS") : tr(" ALERT")));

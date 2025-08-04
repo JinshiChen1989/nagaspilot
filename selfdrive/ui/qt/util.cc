@@ -26,12 +26,11 @@ QString getVersion() {
 }
 
 QString getBrand() {
-  const bool disable_driver = getenv("DISABLE_DRIVER");
-  return QObject::tr("NagasPilot") + (disable_driver ? QString::fromStdString(" - Lite") : QString(""));
+  return QObject::tr("openpilot");
 }
 
 QString getUserAgent() {
-  return "NagasPilot-" + getVersion();
+  return "openpilot-" + getVersion();
 }
 
 std::optional<QString> getDongleId() {

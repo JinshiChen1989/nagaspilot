@@ -26,7 +26,6 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.system.hardware.power_monitoring import PowerMonitoring
 from openpilot.system.hardware.fan_controller import TiciFanController
 from openpilot.system.version import terms_version, training_version
-import socket
 
 ThermalStatus = log.DeviceState.ThermalStatus
 NetworkType = log.DeviceState.NetworkType
@@ -208,8 +207,6 @@ def hardware_thread(end_event, hw_queue) -> None:
 
   fan_controller = None
 
-  np_device_go_off_road = False
-
   while not end_event.is_set():
     sm.update(PANDA_STATES_TIMEOUT)
 
@@ -306,8 +303,7 @@ def hardware_thread(end_event, hw_queue) -> None:
 
     # **** starting logic ****
 
-    # BrownPanda: Always allow startup regardless of connectivity
-    startup_conditions["up_to_date"] = True  # params.get("Offroad_ConnectivityNeeded") is None or params.get_bool("DisableUpdates") or params.get_bool("SnoozeUpdate")
+    startup_conditions["up_to_date"] = params.get("Offroad_ConnectivityNeeded") is None or params.get_bool("DisableUpdates") or params.get_bool("SnoozeUpdate")
     startup_conditions["not_uninstalling"] = not params.get_bool("DoUninstall")
     startup_conditions["accepted_terms"] = params.get("HasAcceptedTerms") == terms_version
 
@@ -330,7 +326,7 @@ def hardware_thread(end_event, hw_queue) -> None:
     set_offroad_alert_if_changed("Offroad_TemperatureTooHigh", show_alert, extra_text=extra_text)
 
     # TODO: this should move to TICI.initialize_hardware, but we currently can't import params there
-    if TICI and HARDWARE.get_device_type() == "tici" and not os.getenv("DISABLE_DRIVER"):
+    if TICI and HARDWARE.get_device_type() == "tici":
       if not os.path.isfile("/persist/comma/living-in-the-moment"):
         if not Path("/data/media").is_mount():
           set_offroad_alert_if_changed("Offroad_StorageMissing", True)
@@ -346,9 +342,7 @@ def hardware_thread(end_event, hw_queue) -> None:
             pass
 
     # Handle offroad/onroad transition
-    if count % 6 == 0:
-      np_device_go_off_road = params.get_bool("np_device_go_off_road")
-    should_start = not np_device_go_off_road and all(onroad_conditions.values())
+    should_start = all(onroad_conditions.values())
     if started_ts is None:
       should_start = should_start and all(startup_conditions.values())
 
@@ -462,32 +456,6 @@ def hardware_thread(end_event, hw_queue) -> None:
     should_start_prev = should_start
 
 
-def ip_thread(end_event, hw_queue):
-  count = 0
-  params = Params()
-  s = None
-  ip = None
-  ip_prev = None
-  while not end_event.is_set():
-    # update IP every 5s
-    if count % int(5. / DT_HW) == 0:
-      try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(('10.255.255.255', 1))
-        ip = s.getsockname()[0]
-      except:
-        ip = ''
-      finally:
-        if s:
-          s.close()
-
-      if ip != ip_prev:
-        params.put('np_device_ip', ip.strip())
-      ip_prev = ip
-
-    count += 1
-    time.sleep(DT_HW)
-
 def main():
   hw_queue = queue.Queue(maxsize=1)
   end_event = threading.Event()
@@ -495,7 +463,6 @@ def main():
   threads = [
     threading.Thread(target=hw_state_thread, args=(end_event, hw_queue)),
     threading.Thread(target=hardware_thread, args=(end_event, hw_queue)),
-    threading.Thread(target=ip_thread, args=(end_event, hw_queue)),
   ]
 
   if TICI:

@@ -172,7 +172,6 @@ class CarController(CarControllerBase):
       # pcm entered standstill or it's disabled
       self.standstill_req = False
 
-
     self.last_standstill = CS.out.standstill
 
     # handle UI messages
@@ -267,7 +266,7 @@ class CarController(CarControllerBase):
       if self.frame % 20 == 0 or send_ui:
         can_sends.append(toyotacan.create_ui_command(self.packer, steer_alert, pcm_cancel_cmd, hud_control.leftLaneVisible,
                                                      hud_control.rightLaneVisible, hud_control.leftLaneDepart,
-                                                     hud_control.rightLaneDepart, lat_active, CS.lkas_hud))
+                                                     hud_control.rightLaneDepart, CC.enabled, CS.lkas_hud))
 
       if (self.frame % 100 == 0 or send_ui) and (self.CP.enableDsu or self.CP.flags & ToyotaFlags.DISABLE_RADAR.value):
         can_sends.append(toyotacan.create_fcw_command(self.packer, fcw_alert))
@@ -287,7 +286,6 @@ class CarController(CarControllerBase):
     new_actuators.torqueOutputCan = apply_torque
     new_actuators.steeringAngleDeg = self.last_angle
     new_actuators.accel = self.accel
-
 
     self.frame += 1
     return new_actuators, can_sends

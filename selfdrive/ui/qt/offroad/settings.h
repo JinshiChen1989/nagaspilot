@@ -92,7 +92,6 @@ private:
   QLabel *onroadLbl;
   LabelControl *versionLbl;
   ButtonControl *installBtn;
-  ButtonControl *onOffRoadBtn;
   ButtonControl *downloadBtn;
   ButtonControl *targetBranchBtn;
 
@@ -100,3 +99,5 @@ private:
   ParamWatcher *fs_watch;
 };
 
+// Forward declaration
+class FirehosePanel;

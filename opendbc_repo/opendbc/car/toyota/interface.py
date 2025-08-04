@@ -21,7 +21,7 @@ class CarInterface(CarInterfaceBase):
     return CarControllerParams(CP).ACCEL_MIN, CarControllerParams(CP).ACCEL_MAX
 
   @staticmethod
-  def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, np_params, docs) -> structs.CarParams:
+  def _get_params(ret: structs.CarParams, candidate, fingerprint, car_fw, alpha_long, is_release, docs) -> structs.CarParams:
     ret.brand = "toyota"
     ret.safetyConfigs = [get_safety_config(structs.CarParams.SafetyModel.toyota)]
     ret.safetyConfigs[0].safetyParam = EPS_SCALE[candidate]
@@ -57,22 +57,13 @@ class CarInterface(CarInterfaceBase):
     if Ecu.hybrid in found_ecus:
       ret.flags |= ToyotaFlags.HYBRID.value
 
-    if 0x23 in fingerprint[0]:
-      print("----------------------------------------------")
-      print("nagaspilot: ZSS detected!")
-      print("----------------------------------------------")
-      ret.flags |= ToyotaFlags.ZSS.value
-
     if candidate == CAR.TOYOTA_PRIUS:
       stop_and_go = True
       # Only give steer angle deadzone to for bad angle sensor prius
       for fw in car_fw:
         if fw.ecu == "eps" and not fw.fwVersion == b'8965B47060\x00\x00\x00\x00\x00\x00':
-          if ret.flags & ToyotaFlags.ZSS.value:
-            CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning)
-          else:
-            ret.steerActuatorDelay = 0.25
-            CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning, steering_angle_deadzone_deg=0.2)
+          ret.steerActuatorDelay = 0.25
+          CarInterfaceBase.configure_torque_tune(candidate, ret.lateralTuning, steering_angle_deadzone_deg=0.2)
 
     elif candidate in (CAR.LEXUS_RX, CAR.LEXUS_RX_TSS2):
       stop_and_go = True
@@ -127,23 +118,6 @@ class CarInterface(CarInterfaceBase):
       if alpha_long and candidate in RADAR_ACC_CAR:
         ret.flags |= ToyotaFlags.DISABLE_RADAR.value
 
-      # RADAR_ACC_CAR = CHR TSS2 / RAV4 TSS2
-      # NO_DSU_CAR = CAMRY / CHR
-
-    sdsu_active = False
-    if not (candidate in (RADAR_ACC_CAR | NO_DSU_CAR)) and 0x2FF in fingerprint[0]:
-      print("----------------------------------------------")
-      print("nagaspilot: SDSU detected!")
-      print("----------------------------------------------")
-      ret.safetyConfigs[0].safetyParam |= ToyotaSafetyFlags.LONG_FILTER.value
-
-      ret.enableDsu = False
-      sdsu_active = True
-      stop_and_go = True
-
-      ret.flags |= ToyotaFlags.SDSU.value
-      ret.alphaLongitudinalAvailable = False
-
     # openpilot longitudinal enabled by default:
     #  - cars w/ DSU disconnected
     #  - TSS2 cars with camera sending ACC_CONTROL where we can block it
@@ -155,9 +129,7 @@ class CarInterface(CarInterfaceBase):
     else:
       ret.openpilotLongitudinalControl = ret.enableDsu or \
         candidate in (TSS2_CAR - RADAR_ACC_CAR) or \
-        bool(ret.flags & ToyotaFlags.DISABLE_RADAR.value) or \
-        sdsu_active
-
+        bool(ret.flags & ToyotaFlags.DISABLE_RADAR.value)
 
     ret.autoResumeSng = ret.openpilotLongitudinalControl and candidate in NO_STOP_TIMER_CAR
 
@@ -178,7 +150,6 @@ class CarInterface(CarInterfaceBase):
       # Hybrids have much quicker longitudinal actuator response
       if ret.flags & ToyotaFlags.HYBRID.value:
         ret.longitudinalActuatorDelay = 0.05
-
 
     return ret
 

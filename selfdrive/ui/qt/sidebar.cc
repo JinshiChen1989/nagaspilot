@@ -4,9 +4,6 @@
 
 #include "selfdrive/ui/qt/util.h"
 
-#include <QrCode.hpp>
-using qrcodegen::QrCode;
-
 void Sidebar::drawMetric(QPainter &p, const QPair<QString, QString> &label, QColor c, int y) {
   const QRect rect = {30, y, 240, 126};
 
@@ -28,7 +25,7 @@ void Sidebar::drawMetric(QPainter &p, const QPair<QString, QString> &label, QCol
 }
 
 Sidebar::Sidebar(QWidget *parent) : QFrame(parent), onroad(false), flag_pressed(false), settings_pressed(false) {
-  home_img = loadPixmap("../assets/icons/button_home.png", home_btn.size());
+  home_img = loadPixmap("../assets/images/button_home.png", home_btn.size());
   flag_img = loadPixmap("../assets/images/button_flag.png", home_btn.size());
   settings_img = loadPixmap("../assets/images/button_settings.png", settings_btn.size(), Qt::IgnoreAspectRatio);
 
@@ -109,13 +106,6 @@ void Sidebar::updateState(const UIState &s) {
     pandaStatus = {{tr("NO"), tr("PANDA")}, danger_color};
   }
   setProperty("pandaStatus", QVariant::fromValue(pandaStatus));
-  // rick - update every 5 secs
-  if (sm.frame % UI_FREQ*5 == 0) {
-    ip_addr = QString::fromStdString(Params().get("np_device_ip"));
-    ip_changed = ip_addr != ip_addr_prev;
-    setProperty("ipAddr", ip_addr);
-    ip_addr_prev = ip_addr;
-  }
 }
 
 void Sidebar::paintEvent(QPaintEvent *event) {
@@ -129,20 +119,7 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.setOpacity(settings_pressed ? 0.65 : 1.0);
   p.drawPixmap(settings_btn.x(), settings_btn.y(), settings_img);
   p.setOpacity(onroad && flag_pressed ? 0.65 : 1.0);
-  // Load and display logo instead of QR code
-  static QPixmap logo_img;
-  if (logo_img.isNull()) {
-    logo_img = QPixmap("../assets/icons/logo.png");
-    if (!logo_img.isNull()) {
-      logo_img = logo_img.scaled(home_btn.size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-    }
-  }
-
-  if (!logo_img.isNull()) {
-    p.drawPixmap(home_btn.x(), home_btn.y(), logo_img);
-  } else {
-    p.drawPixmap(home_btn.x(), home_btn.y(), onroad ? flag_img : home_img);
-  }
+  p.drawPixmap(home_btn.x(), home_btn.y(), onroad ? flag_img : home_img);
   p.setOpacity(1.0);
 
   // network
@@ -158,12 +135,6 @@ void Sidebar::paintEvent(QPaintEvent *event) {
   p.setPen(QColor(0xff, 0xff, 0xff));
   const QRect r = QRect(58, 247, width() - 100, 50);
   p.drawText(r, Qt::AlignLeft | Qt::AlignVCenter, net_type);
-
-  // IP
-  p.setFont(InterFont(30));
-  p.setPen(QColor(0xff, 0xff, 0xff));
-  const QRect ip = QRect(40, 260, 230, 100);
-  p.drawText(ip, Qt::AlignCenter, ipAddr);
 
   // metrics
   drawMetric(p, temp_status.first, temp_status.second, 338);

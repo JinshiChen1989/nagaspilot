@@ -107,8 +107,7 @@ int OffroadAlert::refresh() {
     label->setVisible(!text.isEmpty());
     alertCount += !text.isEmpty();
   }
-  // BrownPanda: Snooze button not needed since connectivity alerts are disabled
-  snooze_btn->setVisible(false);  // !alerts["Offroad_ConnectivityNeeded"]->text().isEmpty()
+  snooze_btn->setVisible(!alerts["Offroad_ConnectivityNeeded"]->text().isEmpty());
   return alertCount;
 }
 
