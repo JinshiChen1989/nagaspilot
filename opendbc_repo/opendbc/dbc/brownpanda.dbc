@@ -36,6 +36,17 @@ BS_:
 BU_: LAS GW mADC
 
 
+BO_ 3221225472 VECTOR__INDEPENDENT_SIG_MSG: 0 Vector__XXX
+ SG_ adasSettings : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ parkingBrake : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ rdyDrive : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ longAccel : 0|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
+ SG_ latAccel : 0|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
+ SG_ espEn : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ absEn : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ tracCtrlEn : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ stabCtrlEn : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+
 BO_ 1760 _0x6E0_userCommand: 8 Vector__XXX
  SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
  SG_ brkPedal : 0|8@1+ (0.4,0) [0|102] "%" Vector__XXX
@@ -69,23 +80,17 @@ BO_ 1761 _0x6E1_driverState: 8 Vector__XXX
  SG_ driverFatigue : 16|8@1+ (0.4,0) [0|102] "%" Vector__XXX
 
 BO_ 1762 _0x6E2_carState: 8 Vector__XXX
+ SG_ targetSpeed : 40|14@1+ (0.1,0) [0|409.5] "km/h" Vector__XXX
  SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
  SG_ steerTorq : 0|16@1+ (0.1,-3276.8) [-3276.8|3276.7] "Nm" Vector__XXX
  SG_ brkPressure : 16|8@1+ (0.1,0) [0|25.5] "bar" Vector__XXX
- SG_ vehSpd : 24|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ gearPos : 37|3@1+ (1,0) [0|7] "" Vector__XXX
- SG_ adasSettings : 40|8@1+ (1,0) [0|255] "" Vector__XXX
- SG_ statCcEn : 48|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ statCcActive : 49|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ statLnEn : 50|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ statLnActive : 51|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ currentSpeed : 24|14@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ gearPos : 58|2@1+ (1,0) [0|7] "" Vector__XXX
+ SG_ statCcEn : 54|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ statCcActive : 55|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ statLnEn : 38|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ statLnActive : 39|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ vehDynMode : 56|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ parkingBrake : 58|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ rdyDrive : 59|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotFL : 52|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotFR : 53|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotRL : 54|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotRR : 55|1@1+ (1,0) [0|1] "" Vector__XXX
 
 BO_ 1763 _0x6E3_carState2: 8 Vector__XXX
  SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
@@ -98,34 +103,32 @@ BO_ 1763 _0x6E3_carState2: 8 Vector__XXX
  SG_ switchDoorRL : 6|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ switchDoorRR : 7|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ chrgState : 8|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ setSpeedKph : 16|12@1+ (0.1,0) [0|409.5] "km/h" Vector__XXX
- SG_ gapIndex : 28|2@1+ (1,1) [1|4] "" Vector__XXX
- SG_ turnSignalL : 30|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ turnSignalR : 31|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ accFault : 32|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ gapIndex : 10|2@1+ (1,1) [1|4] "" Vector__XXX
+ SG_ turnSignalL : 12|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ turnSignalR : 13|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ accFault : 14|1@1+ (1,0) [0|1] "" Vector__XXX
 
-BO_ 1764 _0x6E4_espState: 8 Vector__XXX
+BO_ 1766 _0x6E6_espState: 8 Vector__XXX
  SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ wheelRearRight : 47|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ wheelRearLeft : 34|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ wheelFrontRight : 21|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ wheelFrontLeft : 8|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelRearRight : 39|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelRearLeft : 26|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelFrontRight : 13|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelFrontLeft : 0|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
 
-BO_ 1765 _0x6E5_adasState: 8 Vector__XXX
+BO_ 1764 _0x6E4_adasState: 8 Vector__XXX
+ SG_ bsdRearRight : 59|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ bsdRearLeft : 58|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ bsdFrontRight : 57|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ bsdFrontLeft : 56|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
  SG_ leadDistY : 0|14@1+ (0.04,0) [0|655.32] "m" Vector__XXX
  SG_ leadDistX : 14|14@1+ (0.04,0) [0|655.32] "m" Vector__XXX
  SG_ leadNum : 28|4@1+ (1,0) [0|3] "" Vector__XXX
  SG_ leadConf : 32|8@1+ (0.4,0) [0|102] "%" Vector__XXX
 
-BO_ 1766 _0x6E6_chassisState: 8 Vector__XXX
- SG_ longAccel : 0|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
- SG_ latAccel : 16|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
- SG_ espEn : 56|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ absEn : 57|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ tracCtrlEn : 58|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ stabCtrlEn : 59|1@1+ (1,0) [0|1] "" Vector__XXX
+BO_ 1765 _0x6E5_adasState2: 8 Vector__XXX
 
-BO_ 1767 _0x6E7_powertrainState: 8 Vector__XXX
+BO_ 1767 _0x6E7_pwtState: 8 Vector__XXX
  SG_ engRun : 0|1@1+ (1,0) [0|1] "" Vector__XXX
  SG_ systemHealth : 1|3@1+ (1,0) [0|7] "" Vector__XXX
  SG_ pwrFault : 4|4@1+ (1,0) [0|15] "" Vector__XXX
@@ -142,7 +145,7 @@ BO_ 1768 _0x6E8_ImuSensor: 8 Vector__XXX
  SG_ imuYaw : 0|16@1+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
  SG_ imuRoll : 32|16@1+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
  SG_ imuPitch : 16|16@1+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
- 
+
 BO_ 1769 _0x6E9_imuSensor2: 8 Vector__XXX
  SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
  SG_ imuAxisLong : 16|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
@@ -215,10 +218,10 @@ BO_ 1774 _0x6EE_dispCommand2: 8 Vector__XXX
 
 BO_ 1775 _0x6EF_spareCommand: 8 Vector__XXX
  SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- 
+
 BO_ 1776 _0x6F0_BYD: 4 Vector__XXX
  SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
- 
+
 BO_ 1777 _0x6F1_CHANGAN: 4 Vector__XXX
  SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
 
@@ -228,4 +231,7 @@ BO_ 1778 _0x6F2_MG: 8 Vector__XXX
 BO_ 1779 _0x6F3_GAC: 8 Vector__XXX
  SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
 
+
+
+CM_ BO_ 3221225472 "This is a message for not used signals, created by Vector CANdb++ DBC OLE DB Provider.";
 

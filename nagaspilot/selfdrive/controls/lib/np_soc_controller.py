@@ -1,850 +1,535 @@
 #!/usr/bin/env python3
-"""
-====================================================================
-NAGASPILOT SOC (SMART OFFSET CONTROLLER) - DLP LATERAL ENHANCEMENT
-====================================================================
-
-OVERVIEW:
-SOC provides intelligent lateral vehicle avoidance through YOLOv8 detection
-integration with clean, simple physics-based offset calculation for safe
-clearance from large vehicles while maintaining lane discipline.
-
-CORE FUNCTIONALITY:
-- Vehicle detection processing from YOLOv8 daemon
-- Distance-based lateral offset calculation for buses/trucks
-- Smooth offset transitions with configurable rate limiting
-- DLP foundation integration for lateral positioning enhancement
-- Safe fallback when detection data unavailable
-
-VEHICLE CLASSES:
-- car (class 2): Monitor only, no offset
-- bus (class 5): Lateral avoidance offset
-- truck (class 7): Lateral avoidance offset
-
-SAFETY FEATURES:
-- Conservative offset limits (max 0.3m)
-- Gradual transitions (configurable rate)
-- Input validation and bounds checking
-- Graceful degradation on errors
-- DLP foundation dependency validation
-
-INTEGRATION:
-- DLP Foundation: Requires np_dlp_mode > 0 to operate
-- YOLOv8 Detection: Processes vehicle detection messages
-- Parameter System: All parameters use np_ prefix
-- Message Publishing: SOC status via cereal messaging
-"""
-
 import math
 import time
-from typing import Dict, List, Optional
+from typing import Optional
+
+from cereal import log, car
 from openpilot.common.params import Params
-from openpilot.selfdrive.controls.lib.nagaspilot.np_logger import NpLogger
+from openpilot.common.swaglog import cloudlog
 
-# Initialize centralized logger
-np_logger = NpLogger('soc')
 
-# SOC vehicle classes (matching YOLOv8 daemon)
-SOC_VEHICLE_CLASSES = {
-    2: 'car',      # Monitor only - no offset
-    5: 'bus',      # Large vehicle - apply offset
-    7: 'truck',    # Large vehicle - apply offset
-}
+LaneChangeState = log.LaneChangeState
+
 
 class NpSOCController:
-    """
-    Smart Offset Controller - Intelligent lateral avoidance for overtaking scenarios
-    
-    Provides smart lateral offset calculation for large vehicle avoidance using YOLOv8 
-    detection data with DLP foundation integration. Only activates when actually 
-    overtaking slower vehicles, not for faster vehicles pulling away. Features smart 
-    return-to-center timing based on relative speed analysis.
-    """
-    
-    def __init__(self):
-        """Initialize SOC with safe defaults"""
-        self.params = Params()
-        
-        # SOC state
-        self.enabled = False
-        self.dlp_dependency_met = False
-        self.current_offset = 0.0
-        self.target_offset = 0.0
-        self.last_update_time = time.time()
-        
-        # SOC parameters (safe defaults)
-        self.max_offset = 0.25           # Maximum lateral offset (meters)
-        self.min_offset = 0.02           # Minimum offset to activate (meters)
-        self.offset_rate = 0.1           # Maximum offset change rate (m/s)
-        self.avoidance_distance = 30.0   # Detection range (meters)
-        self.confidence_threshold = 0.7  # Detection confidence threshold
-        
-        # Lane width tracking and vehicle-based offset
-        self.vehicle_width = 1.9         # Our vehicle width (meters) - will be updated from params
-        self.safety_margin = 0.20        # Safety margin each side (meters)
-        self.current_lane_width = 3.2    # Current detected lane width
-        self.lane_width_memory = 3.2     # Last known lane width for laneless mode
-        self.lane_width_update_time = 0.0
-        self.lane_memory_timeout = 30.0  # Use memory for 30 seconds max
-        self.lane_center_offset = 0.0    # Our position relative to lane center
-        self.left_lane_line_dist = 1.6   # Distance to left lane line
-        self.right_lane_line_dist = 1.6  # Distance to right lane line
-        
-        # Performance tracking
-        self.vehicles_detected = 0
-        self.avoidance_activations = 0
-        
-        # Smart return-to-center logic
-        self.last_vehicle_detection = {}        # Track last seen vehicles with speed
-        self.return_delay_time = 0.0            # Time to wait before returning
-        self.min_return_delay = 2.0             # Minimum delay when detection lost (seconds)
-        self.max_return_delay = 5.0             # Maximum delay for safety (seconds)
-        
-        # Acceleration safety check - prevents SOC during high acceleration
-        self.max_safe_acceleration = 2.0       # Maximum acceleration for SOC activation (m/s²)
-        self.accel_check_enabled = True        # Enable acceleration safety check
-        
-        np_logger.info("SOC Controller initialized - Smart vehicle avoidance ready")
-    
-    def read_params(self):
-        """Read SOC parameters with bounds checking and np_ prefix"""
-        try:
-            # Check DCP dependency (SOC requires lateral control foundation)
-            dlp_mode = self.params.get_int("np_dlp_mode")
-            self.dlp_dependency_met = (dlp_mode > 0)
-            
-            if not self.dlp_dependency_met:
-                self.enabled = False
-                return
-                
-            # Read SOC enable status
-            self.enabled = self.params.get_bool("np_soc_enabled")
-            
-            # Maximum lateral offset (0.1-0.5m range)
-            try:
-                max_offset_str = self.params.get("np_soc_max_offset", encoding='utf8')
-                if max_offset_str:
-                    self.max_offset = max(0.1, min(0.5, float(max_offset_str)))
-            except (ValueError, TypeError):
-                self.max_offset = 0.25  # Safe default
-                
-            # Minimum activation offset (0.01-0.1m range)
-            try:
-                min_offset_str = self.params.get("np_soc_min_offset", encoding='utf8')
-                if min_offset_str:
-                    self.min_offset = max(0.01, min(0.1, float(min_offset_str)))
-            except (ValueError, TypeError):
-                self.min_offset = 0.02  # Safe default
-                
-            # Offset change rate (0.05-0.3 m/s range)
-            try:
-                offset_rate_str = self.params.get("np_soc_offset_rate", encoding='utf8')
-                if offset_rate_str:
-                    self.offset_rate = max(0.05, min(0.3, float(offset_rate_str)))
-            except (ValueError, TypeError):
-                self.offset_rate = 0.1  # Safe default
-                
-            # Avoidance detection distance (10-50m range)
-            try:
-                distance_str = self.params.get("np_soc_avoidance_distance", encoding='utf8')
-                if distance_str:
-                    self.avoidance_distance = max(10.0, min(50.0, float(distance_str)))
-            except (ValueError, TypeError):
-                self.avoidance_distance = 30.0  # Safe default
-                
-            # Detection confidence threshold (0.5-0.9 range)
-            try:
-                confidence_str = self.params.get("np_soc_confidence_threshold", encoding='utf8')
-                if confidence_str:
-                    self.confidence_threshold = max(0.5, min(0.9, float(confidence_str)))
-            except (ValueError, TypeError):
-                self.confidence_threshold = 0.7  # Safe default
-                
-            # Vehicle width constant (eliminates np_vehicle_width parameter)
-            self.vehicle_width = 1.9  # meters - standard vehicle width constant
-                
-            # Safety margin (0.2-0.5m range)
-            try:
-                safety_margin_str = self.params.get("np_soc_safety_margin", encoding='utf8')
-                if safety_margin_str:
-                    self.safety_margin = max(0.2, min(0.5, float(safety_margin_str)))
-            except (ValueError, TypeError):
-                self.safety_margin = 0.20  # Safe default
-                
-        except Exception as e:
-            np_logger.error(f"Parameter reading error: {e}, using safe defaults")
-            self.enabled = False
-    
-    def update_lane_information(self, driving_context: Dict) -> None:
-        """Simple lane width tracking with safe fallbacks"""
-        try:
-            current_time = time.time()
-            sm = driving_context.get('sm')
-            
-            # Safe fallback: no data source
-            if not sm or 'modelV2' not in sm:
-                self._use_fallback_lane_data()
-                return
-                
-            model_data = sm['modelV2']
-            
-            # Try to get lane lines
-            if hasattr(model_data, 'laneLines') and model_data.laneLines:
-                left_y = None
-                right_y = None
-                
-                # Simple search for left and right lane lines
-                for line in model_data.laneLines:
-                    if hasattr(line, 'y') and len(line.y) > 0:
-                        y_pos = line.y[0]
-                        if -4.0 <= y_pos <= -0.5 and left_y is None:  # Left lane
-                            left_y = y_pos
-                        elif 0.5 <= y_pos <= 4.0 and right_y is None:  # Right lane
-                            right_y = y_pos
-                
-                # Update if both lines found and reasonable
-                if left_y is not None and right_y is not None:
-                    lane_width = abs(right_y - left_y)
-                    if 2.5 <= lane_width <= 4.5:  # Reasonable lane width
-                        self.current_lane_width = lane_width
-                        self.lane_width_memory = lane_width
-                        self.lane_width_update_time = current_time
-                        self.left_lane_line_dist = abs(left_y)
-                        self.right_lane_line_dist = abs(right_y)
-                        self.lane_center_offset = -(left_y + right_y) / 2
-                        return
-            
-            # No valid lane data - use memory or fallback
-            self._use_fallback_lane_data()
-                
-        except Exception as e:
-            np_logger.warning(f"Lane update error: {e}")
-            self._use_fallback_lane_data()
-    
-    def _use_fallback_lane_data(self) -> None:
-        """Use lane memory or safe conservative defaults"""
-        current_time = time.time()
-        time_since_update = current_time - self.lane_width_update_time
-        
-        if time_since_update < self.lane_memory_timeout:
-            # Use memory - assume centered
-            self.current_lane_width = self.lane_width_memory
-            self.left_lane_line_dist = self.lane_width_memory / 2
-            self.right_lane_line_dist = self.lane_width_memory / 2
-            self.lane_center_offset = 0.0
-        else:
-            # Conservative fallback - narrow lane assumption
-            self.current_lane_width = 3.0
-            self.left_lane_line_dist = 1.5
-            self.right_lane_line_dist = 1.5
-            self.lane_center_offset = 0.0
-    
-    def calculate_adaptive_offset_limit(self, direction: str) -> float:
-        """Calculate maximum safe offset - simple vehicle size + safety margin"""
-        try:
-            # Simple calculation: vehicle half-width + safety margin = space needed
-            space_needed = (self.vehicle_width / 2) + self.safety_margin
-            
-            # Get available space to lane line
-            if direction == 'left':
-                available_space = self.left_lane_line_dist
-            else:  # direction == 'right'
-                available_space = self.right_lane_line_dist
-            
-            # Conservative: use only 60% of remaining space after our requirements
-            remaining_space = available_space - space_needed
-            if remaining_space > 0:
-                safe_offset = min(remaining_space * 0.6, self.max_offset)
-                return max(self.min_offset, safe_offset) if safe_offset > 0 else 0.0
-            else:
-                return 0.0  # No safe space available
-            
-        except Exception as e:
-            np_logger.warning(f"Offset limit error: {e}")
-            return 0.0  # Safe fallback: no offset
-    
-    def _validate_detection_data(self, detection: Dict) -> bool:
-        """Validate detection data for safety"""
-        try:
-            # Check required fields
-            if not all(key in detection for key in ['className', 'confidence', 'position3D']):
-                return False
-                
-            # Check vehicle class
-            if detection['className'] not in ['bus', 'truck']:
-                return False
-                
-            # Check confidence
-            if detection['confidence'] < self.confidence_threshold:
-                return False
-                
-            # Check position data
-            pos = detection['position3D']
-            if not all(key in pos for key in ['x', 'y', 'z']):
-                return False
-                
-            # Check for valid distance (positive, reasonable range)
-            distance = pos['x']
-            if not (0.1 <= distance <= 100.0):
-                return False
-                
-            # Check for valid lateral position (reasonable range)
-            lateral = pos['y']
-            if not (-10.0 <= lateral <= 10.0):
-                return False
-                
-            return True
-            
-        except (TypeError, KeyError, ValueError):
-            return False
-    
-    def calculate_vehicle_offset(self, vehicle_class: str, distance: float, lateral: float) -> float:
-        """Simple clean offset calculation with safety fallbacks"""
-        try:
-            # Only offset for large vehicles
-            if vehicle_class == 'truck':
-                base_offset = self.safety_margin * 1.2  # 24cm for trucks
-            elif vehicle_class == 'bus':
-                base_offset = self.safety_margin * 1.0  # 20cm for buses  
-            else:
-                return 0.0  # No offset for cars
-            
-            # Simple distance scaling - closer vehicles need more offset
-            if distance > 20.0:
-                distance_factor = 0.5      # Far vehicles - half offset
-            elif distance > 10.0:
-                distance_factor = 0.8      # Medium distance
-            else:
-                distance_factor = 1.0      # Close vehicles - full offset
-            
-            # Simple lateral check - is vehicle close to our lane?
-            abs_lateral = abs(lateral)
-            if abs_lateral > self.current_lane_width:
-                return 0.0  # Too far away - no offset needed
-            elif abs_lateral > self.current_lane_width * 0.6:
-                lateral_factor = 0.5  # Adjacent lane - reduced offset
-            else:
-                lateral_factor = 1.0  # Close to our lane - full offset
-            
-            # Calculate desired offset
-            desired_offset = base_offset * distance_factor * lateral_factor
-            
-            # Check lane safety limits and apply direction
-            if lateral > 0:  # Vehicle to our left - move right (negative)
-                max_safe = self.calculate_adaptive_offset_limit('right')
-                final_offset = -min(desired_offset, max_safe)
-            else:  # Vehicle to our right - move left (positive)
-                max_safe = self.calculate_adaptive_offset_limit('left')
-                final_offset = min(desired_offset, max_safe)
-            
-            # Apply minimum threshold for activation
-            if abs(final_offset) < self.min_offset:
-                return 0.0
-                
-            return final_offset
-                
-        except Exception as e:
-            np_logger.warning(f"Offset calculation error: {e}")
-            return 0.0  # Safe fallback: no offset
-    
-    def update_vehicle_tracking(self, detections: List[Dict], driving_context: Dict) -> None:
-        """
-        Track vehicles with speed data for smart return-to-center logic
-        Uses driving context to get ego speed for relative speed calculation
-        """
-        try:
-            current_time = time.time()
-            ego_speed_ms = driving_context.get('v_ego', 0.0) if driving_context else 0.0
-            
-            # Get current vehicles in range
-            current_vehicles = {}
-            
-            for detection in detections:
-                if not self._validate_detection_data(detection):
-                    continue
-                
-                vehicle_class = detection['className']
-                if vehicle_class not in ['bus', 'truck']:  # Only track large vehicles
-                    continue
-                
-                pos = detection['position3D']
-                distance = pos['x']
-                lateral = pos['y']
-                
-                if distance > self.avoidance_distance:
-                    continue
-                
-                # Create unique vehicle ID based on position (rounded for stability)
-                vehicle_id = f"{vehicle_class}_{distance:.0f}_{lateral:.1f}"
-                
-                # Store current detection with timestamp
-                current_vehicles[vehicle_id] = {
-                    'distance': distance,
-                    'lateral': lateral,
-                    'class': vehicle_class,
-                    'time': current_time,
-                    'ego_speed': ego_speed_ms
-                }
-            
-            # Calculate relative speeds for previously tracked vehicles
-            for vehicle_id, current_data in current_vehicles.items():
-                if vehicle_id in self.last_vehicle_detection:
-                    prev_data = self.last_vehicle_detection[vehicle_id]
-                    
-                    # Calculate relative speed
-                    dt = current_data['time'] - prev_data['time']
-                    if dt > 0.1:  # Minimum time delta for reliable calculation
-                        distance_change = current_data['distance'] - prev_data['distance']
-                        relative_speed = distance_change / dt  # Positive = vehicle moving away
-                        current_data['relative_speed'] = relative_speed
-                    else:
-                        current_data['relative_speed'] = prev_data.get('relative_speed', 0.0)
-                else:
-                    current_data['relative_speed'] = 0.0  # First detection
-            
-            # Update tracking
-            self.last_vehicle_detection = current_vehicles
-            
-        except Exception as e:
-            np_logger.warning(f"Vehicle tracking error: {e}")
-    
-    def calculate_smart_return_delay(self) -> float:
-        """
-        Calculate how long to delay return-to-center based on relative speeds
-        Considers multiple vehicles and convoy scenarios
-        Returns delay time in seconds
-        """
-        try:
-            # If no vehicles were being tracked, return immediately
-            if not self.last_vehicle_detection:
-                return 0.0
-            
-            # Check if we were likely passing any vehicles
-            max_delay = 0.0
-            vehicle_count = len(self.last_vehicle_detection)
-            
-            for vehicle_id, vehicle_data in self.last_vehicle_detection.items():
-                relative_speed = vehicle_data.get('relative_speed', 0.0)
-                ego_speed = vehicle_data.get('ego_speed', 0.0)
-                last_distance = vehicle_data.get('distance', 30.0)
-                
-                # If we were moving faster than the vehicle (overtaking scenario)
-                if relative_speed > 1.0:  # We were gaining on the vehicle (m/s)
-                    # Calculate estimated time to fully pass based on vehicle size and our speed
-                    vehicle_length = 15.0 if vehicle_data['class'] == 'bus' else 8.0  # Estimated lengths
-                    passing_time = vehicle_length / ego_speed if ego_speed > 2.0 else 3.0
-                    
-                    # Add safety margin and consider last known distance
-                    if last_distance < 10.0:  # Vehicle was close when lost
-                        delay = min(passing_time + 1.0, self.max_return_delay)
-                    else:
-                        delay = min(passing_time * 0.5, self.max_return_delay)
-                    
-                    max_delay = max(max_delay, delay)
-                
-                elif relative_speed < -2.0:  # Vehicle was pulling away from us
-                    # Likely already passed - shorter delay
-                    max_delay = max(max_delay, self.min_return_delay * 0.5)
-                
-                else:  # Similar speeds or uncertain
-                    # Use minimum delay for safety
-                    max_delay = max(max_delay, self.min_return_delay)
-            
-            # For multiple vehicles (convoy scenario), add extra caution
-            if vehicle_count > 1:
-                convoy_bonus = min(1.0, vehicle_count * 0.3)  # Extra 0.3s per vehicle
-                max_delay += convoy_bonus
-                np_logger.info(f"Convoy detected ({vehicle_count} vehicles), adding {convoy_bonus:.1f}s delay")
-            
-            return min(max_delay, self.max_return_delay)
-            
-        except Exception as e:
-            np_logger.warning(f"Smart return delay calculation error: {e}")
-            return self.min_return_delay
-    
-    def _check_acceleration_safety(self, driving_context: Dict) -> Dict:
-        """
-        Check if current acceleration is safe for SOC activation
-        Prevents SOC during high acceleration (PDA boost, manual acceleration, etc.)
-        
-        Returns:
-            Dict with safety status and reason
-        """
-        try:
-            if not self.accel_check_enabled:
-                return {'safe': True, 'reason': 'Acceleration check disabled'}
-            
-            # Get current acceleration from driving context
-            current_accel = driving_context.get('a_ego', 0.0)
-            
-            # Check if acceleration is within safe limits
-            if abs(current_accel) > self.max_safe_acceleration:
-                return {
-                    'safe': False,
-                    'acceleration': current_accel,
-                    'reason': f'High acceleration: {current_accel:.2f} m/s² > {self.max_safe_acceleration:.2f} m/s²'
-                }
-            
-            return {
-                'safe': True,
-                'acceleration': current_accel,
-                'reason': f'Safe acceleration: {current_accel:.2f} m/s²'
-            }
-            
-        except Exception as e:
-            np_logger.warning(f"Acceleration safety check error: {e}")
-            return {
-                'safe': False,
-                'acceleration': 0.0,
-                'reason': f'Acceleration check error: {e}'
-            }
-    
-    def _should_avoid_vehicle(self, vehicle_id: str, distance: float, relative_speed: float) -> bool:
-        """
-        Determine if we should avoid this vehicle based on overtaking scenario analysis
-        
-        Args:
-            vehicle_id: Unique vehicle identifier
-            distance: Current distance to vehicle (meters)
-            relative_speed: Our speed relative to vehicle (m/s, positive = we're faster)
-            
-        Returns:
-            True if we should apply lateral offset for this vehicle
-        """
-        try:
-            # Case 1: First detection - no speed data yet, be conservative and apply offset
-            if vehicle_id not in self.last_vehicle_detection:
-                np_logger.debug(f"First detection of {vehicle_id}, applying offset (no speed data)")
-                return True
-            
-            # Case 2: Vehicle is significantly faster than us - don't offset
-            if relative_speed < -1.0:  # Vehicle pulling away at >1 m/s (~3.6 km/h)
-                np_logger.debug(f"Vehicle {vehicle_id} faster than us (rel_speed={relative_speed:.1f}), skipping offset")
-                return False
-                
-            # Case 3: We're approaching the vehicle - definitely apply offset
-            if relative_speed > 0.5:  # We're catching up at >0.5 m/s (~1.8 km/h) 
-                np_logger.debug(f"Approaching {vehicle_id} (rel_speed={relative_speed:.1f}), applying offset")
-                return True
-                
-            # Case 4: Similar speeds or very close distance - apply offset for safety
-            if distance < 15.0:  # Very close - always offset regardless of speed
-                np_logger.debug(f"Very close to {vehicle_id} ({distance:.1f}m), applying safety offset")
-                return True
-                
-            # Case 5: Uncertain speed but reasonable distance - slight bias toward safety
-            if abs(relative_speed) < 0.5:  # Similar speeds within ±0.5 m/s
-                np_logger.debug(f"Similar speeds to {vehicle_id} (rel_speed={relative_speed:.1f}), applying offset")
-                return True
-                
-            # Case 6: Vehicle slower but we're not catching up much - skip offset
-            np_logger.debug(f"Ambiguous scenario for {vehicle_id} (rel_speed={relative_speed:.1f}), skipping offset")
-            return False
-            
-        except Exception as e:
-            np_logger.warning(f"Vehicle avoidance decision error for {vehicle_id}: {e}")
-            return True  # Default to safe behavior
-    
-    def _is_pda_boost_active(self, driving_context: Dict) -> bool:
-        """
-        Check if PDA is currently applying speed boost - critical safety check
-        SOC should not activate new offsets during PDA boost phases
-        """
-        try:
-            # Check for PDA active status in driving context
-            pda_status = driving_context.get('pda_status', {})
-            if isinstance(pda_status, dict):
-                is_pda_active = pda_status.get('active', False)
-                pda_reason = pda_status.get('reason', '')
-                
-                # Check if PDA is in boost/overtaking phase
-                if is_pda_active and any(keyword in pda_reason.lower() for keyword in 
-                    ['boost', 'overtaking', 'overtake', 'anchor']):
-                    np_logger.info(f"PDA boost detected: {pda_reason}")
-                    return True
-            
-            # Alternative check: look for speed modifications in driving context
-            speed_modifier = driving_context.get('speed_modifier', 1.0)
-            if speed_modifier > 1.05:  # >5% speed increase suggests active boost
-                np_logger.debug(f"Speed boost detected: {speed_modifier:.2f}")
-                return True
-                
-            return False
-            
-        except Exception as e:
-            np_logger.warning(f"PDA boost check error: {e}")
-            return False  # Default to allow SOC if uncertain
-    
-    def process_detections(self, detections: List[Dict]) -> float:
-        """Process vehicle detections and calculate target offset"""
-        try:
-            if not detections:
-                return 0.0
-                
-            max_offset = 0.0
-            vehicles_found = 0
-            
-            for detection in detections:
-                # Validate detection data
-                if not self._validate_detection_data(detection):
-                    continue
-                    
-                # Extract detection data
-                vehicle_class = detection['className']
-                confidence = detection['confidence']
-                pos = detection['position3D']
-                distance = pos['x']
-                lateral = pos['y']
-                
-                # Check if vehicle is within avoidance range
-                if distance > self.avoidance_distance:
-                    continue
-                
-                # Check if we're actually approaching this vehicle (relative speed check)
-                vehicle_id = f"{vehicle_class}_{distance:.0f}_{lateral:.1f}"
-                relative_speed = 0.0
-                if vehicle_id in self.last_vehicle_detection:
-                    relative_speed = self.last_vehicle_detection[vehicle_id].get('relative_speed', 0.0)
-                
-                # Only apply offset if we're actually in an overtaking scenario
-                should_avoid = self._should_avoid_vehicle(vehicle_id, distance, relative_speed)
-                if not should_avoid:
-                    continue
-                    
-                # Calculate offset for this vehicle
-                offset = self.calculate_vehicle_offset(vehicle_class, distance, lateral)
-                
-                # Track maximum offset needed
-                if abs(offset) > abs(max_offset):
-                    max_offset = offset
-                    
-                vehicles_found += 1
-                
-            self.vehicles_detected += vehicles_found
-            return max_offset
-            
-        except Exception as e:
-            np_logger.error(f"Detection processing error: {e}")
-            return 0.0
-    
-    def update_offset(self, target_offset: float) -> float:
-        """Update current offset with smooth transitions"""
-        try:
-            current_time = time.time()
-            dt = current_time - self.last_update_time
-            self.last_update_time = current_time
-            
-            # Calculate maximum change this update
-            max_change = self.offset_rate * dt
-            
-            # Apply rate limiting for smooth transitions
-            offset_error = target_offset - self.current_offset
-            
-            if abs(offset_error) <= max_change:
-                # Can reach target this update
-                self.current_offset = target_offset
-            else:
-                # Move toward target at maximum rate
-                if offset_error > 0:
-                    self.current_offset += max_change
-                else:
-                    self.current_offset -= max_change
-            
-            # Safety clamp to maximum offset
-            self.current_offset = max(-self.max_offset, min(self.max_offset, self.current_offset))
-            
-            return self.current_offset
-            
-        except Exception as e:
-            np_logger.error(f"Offset update error: {e}")
-            return 0.0
-    
-    def get_status(self, detections: List[Dict] = None, driving_context: Dict = None) -> Dict:
-        """
-        Get SOC status with detection processing
-        
-        Args:
-            detections: List of vehicle detection dictionaries from YOLOv8
-            driving_context: Driving context for lane information
-            
-        Returns:
-            Dictionary with SOC status information
-        """
-        # Read parameters and check dependencies
-        self.read_params()
-        
-        # Update lane width information if driving context provided
-        if driving_context:
-            self.update_lane_information(driving_context)
-        
-        # Default inactive status
-        status = {
-            'enabled': self.enabled,
-            'dlp_dependency_met': self.dlp_dependency_met,
-            'active': False,
-            'lateral_offset': 0.0,
-            'target_offset': 0.0,
-            'vehicles_detected': 0,
-            'reason': 'SOC inactive'
-        }
-        
-        # Early exit if not enabled or dependency not met
-        if not (self.enabled and self.dlp_dependency_met):
-            if not self.dlp_dependency_met:
-                status['reason'] = 'DLP Foundation disabled'
-            else:
-                status['reason'] = 'SOC disabled'
-            return status
-        
-        # Process detections if provided  
-        if detections:
-            try:
-                # CRITICAL SAFETY CHECKS: Block SOC during unsafe conditions
-                if driving_context:
-                    # Check 1: High acceleration (any source)
-                    accel_safety = self._check_acceleration_safety(driving_context)
-                    if not accel_safety['safe']:
-                        if abs(self.current_offset) < self.min_offset:  # Currently not offsetting
-                            status.update({
-                                'active': False,
-                                'lateral_offset': 0.0,
-                                'target_offset': 0.0,
-                                'vehicles_detected': len([d for d in detections if self._validate_detection_data(d)]),
-                                'reason': f'SOC blocked: {accel_safety["reason"]}'
-                            })
-                            return status
-                    
-                    # Check 2: PDA boost phase active
-                    pda_status = driving_context.get('pda_status', {})
-                    if pda_status.get('active', False):
-                        if abs(self.current_offset) < self.min_offset:  # Currently not offsetting
-                            status.update({
-                                'active': False,
-                                'lateral_offset': 0.0,
-                                'target_offset': 0.0,
-                                'vehicles_detected': len([d for d in detections if self._validate_detection_data(d)]),
-                                'reason': 'SOC blocked: PDA boost active'
-                            })
-                            return status
-                
-                # Update vehicle tracking for smart return logic
-                self.update_vehicle_tracking(detections, driving_context)
-                
-                # Calculate target offset from detections
-                new_target_offset = self.process_detections(detections)
-                
-                # Check if we have new vehicles during return delay
-                if hasattr(self, 'return_delay_time') and self.return_delay_time > 0:
-                    current_time = time.time()
-                    if current_time < self.return_delay_time and new_target_offset > 0:
-                        # New vehicle detected during delay - cancel delay and use new target
-                        self.return_delay_time = 0.0
-                        self.target_offset = new_target_offset
-                        np_logger.info("New vehicle detected during return delay - canceling delay")
-                    else:
-                        self.target_offset = new_target_offset
-                else:
-                    self.target_offset = new_target_offset
-                
-                # Update current offset with smooth transitions
-                self.current_offset = self.update_offset(self.target_offset)
-                
-                # Determine if SOC is actively controlling
-                is_active = abs(self.current_offset) > self.min_offset
-                
-                if is_active and not hasattr(self, '_was_active'):
-                    self.avoidance_activations += 1
-                    self._was_active = True
-                elif not is_active:
-                    self._was_active = False
-                
-                # Update status
-                status.update({
-                    'active': is_active,
-                    'lateral_offset': self.current_offset,
-                    'target_offset': self.target_offset,
-                    'vehicles_detected': len([d for d in detections if self._validate_detection_data(d)]),
-                    'reason': f'Avoiding large vehicles: {self.current_offset:.2f}m offset' if is_active else 'No avoidance needed'
-                })
-                
-                
-            except Exception as e:
-                np_logger.error(f"Status processing error: {e}")
-                status['reason'] = f'Processing error: {str(e)}'
-        else:
-            # No detection data - use smart return logic
-            current_time = time.time()
-            
-            # Check if we should delay return based on relative speed analysis
-            if hasattr(self, 'return_delay_time') and self.return_delay_time > 0:
-                if current_time < self.return_delay_time:
-                    # Still in delay period - maintain current offset
-                    self.target_offset = self.current_offset
-                    self.current_offset = self.update_offset(self.target_offset)
-                    remaining_delay = self.return_delay_time - current_time
-                    status['lateral_offset'] = self.current_offset
-                    status['reason'] = f'Smart return delay: {remaining_delay:.1f}s remaining'
-                else:
-                    # Delay period over - start returning to center
-                    self.target_offset = 0.0
-                    self.current_offset = self.update_offset(0.0)
-                    status['lateral_offset'] = self.current_offset
-                    status['reason'] = 'Returning to center after delay'
-                    if abs(self.current_offset) < self.min_offset:
-                        self.return_delay_time = 0.0  # Reset delay
-            else:
-                # First time losing detection - calculate smart delay
-                smart_delay = self.calculate_smart_return_delay()
-                if smart_delay > 0:
-                    self.return_delay_time = current_time + smart_delay
-                    self.target_offset = self.current_offset  # Maintain current offset
-                    self.current_offset = self.update_offset(self.target_offset)
-                    status['lateral_offset'] = self.current_offset
-                    status['reason'] = f'Detection lost, smart delay: {smart_delay:.1f}s'
-                else:
-                    # No delay needed - return immediately
-                    self.target_offset = 0.0
-                    self.current_offset = self.update_offset(0.0)
-                    status['lateral_offset'] = self.current_offset
-                    status['reason'] = 'No detection data - returning to center'
-        
-        return status
-    
-    def get_debug_info(self) -> Dict:
-        """Get debug information for monitoring"""
-        current_time = time.time()
-        time_since_lane_update = current_time - self.lane_width_update_time
-        
-        return {
-            'enabled': self.enabled,
-            'dlp_dependency_met': self.dlp_dependency_met,
-            'current_offset': round(self.current_offset, 3),
-            'target_offset': round(self.target_offset, 3),
-            'max_offset': self.max_offset,
-            'min_offset': self.min_offset,
-            'offset_rate': self.offset_rate,
-            'avoidance_distance': self.avoidance_distance,
-            'confidence_threshold': self.confidence_threshold,
-            'vehicles_detected': self.vehicles_detected,
-            'avoidance_activations': self.avoidance_activations,
-            # Lane width tracking info
-            'vehicle_width': self.vehicle_width,
-            'safety_margin': self.safety_margin,
-            'current_lane_width': round(self.current_lane_width, 2),
-            'lane_width_memory': round(self.lane_width_memory, 2),
-            'time_since_lane_update': round(time_since_lane_update, 1),
-            'using_lane_memory': time_since_lane_update < self.lane_memory_timeout,
-            'lane_center_offset': round(self.lane_center_offset, 3),
-            'left_lane_line_dist': round(self.left_lane_line_dist, 2),
-            'right_lane_line_dist': round(self.right_lane_line_dist, 2)
-        }
+  """
+  Smart Offset Controller (SOC) without YOLO integration.
 
-# SOC Integration Notes:
-# - Lane-aware adaptive offset based on vehicle dimensions and lane constraints
-# - Remembers lane width when DLP switches to laneless mode (30s memory)
-# - Vehicle width follows brownpanda settings parameters (np_vehicle_width)
-# - Adaptive safety margins based on available lane space
-# - All parameters use np_ prefix for consistency
-# - Graceful fallback on errors or missing data
-# - DLP foundation dependency ensures proper integration
-# - Prevents lane line violations through constraint checking
+  - Uses modelV2 lane lines and road edges to maintain configurable clearances.
+  - Vision-only: no radar dependency; adjacent vehicles approximated via model leads.
+  - Produces a curvature delta to be added to model desired curvature.
+
+  Parameters (np_lat_ prefix):
+    - np_lat_soc_speed (km/h; 0 disables)
+    - np_lat_soc_adjacent_offset (m)
+    - np_lat_soc_edge_offset (m)
+    - np_lat_soc_lane_offset (m)
+  """
+
+  def __init__(self) -> None:
+    self.params = Params()
+    self._last_param_read_t = 0.0
+
+    # Defaults aligned with UI
+    self.speed_kph_enable = 0
+    self.adjacent_target = 2.8
+    self.edge_target = 1.6
+    self.lane_target = 1.2
+
+    # Behavior
+    self._lane_side_threshold = 1.2
+    self._max_offset_m = 0.5
+    self._offset_rate_mps = 0.15
+    self._return_rate_mps = 0.25  # faster return for decisive recenters
+    self._max_curvature = 0.05
+    self._ay_thresh = 1.2   # m/s^2, lateral acceleration threshold for curve gating
+    self._rel_k_frac = 0.5  # relative clamp fraction: |SOC k| <= frac * |model k|
+
+    # Debug/telemetry
+    self._dbg_state = 0
+    self._dbg_offset = 0.0
+    self._dbg_kdelta = 0.0
+    self._dbg_ay = 0.0
+    self._dbg_tta_left = 0.0
+    self._dbg_tta_right = 0.0
+    self._dbg_tta_thresh = 0.0
+
+    # State
+    self._current_offset_m = 0.0
+    self._last_update_t = time.monotonic()
+    # State machine to avoid chattering
+    self._state = 0  # 0=IDLE, 1=OFFSETTING, 2=MAINTAINING, 3=RETURNING
+    self._state_enter_t = self._last_update_t
+    self._cooldown_until_t = 0.0
+    self._maintain_until_t = 0.0
+    self._active_side_sign = 0  # +1 right, -1 left, 0 none
+    # Hysteresis thresholds and timers
+    self._activate_thresh_m = 0.06   # need this much to engage
+    self._release_thresh_m = 0.03    # below this we can release
+    self._steady_tol_m = 0.02        # close enough to target to consider steady
+    self._min_hold_s = 1.0           # maintain offset at least this long
+    self._min_return_s = 0.5         # spend at least this long returning
+    self._cooldown_s = 0.5           # cooldown after returning before re-engaging
+
+  def _read_params(self) -> None:
+    now = time.monotonic()
+    if now - self._last_param_read_t < 1.0:
+      return
+    self._last_param_read_t = now
+
+    try:
+      v = self.params.get_int("np_lat_soc_speed")
+      self.speed_kph_enable = max(0, int(v)) if v is not None else 0
+    except Exception:
+      self.speed_kph_enable = 0
+
+    def _get_f(name: str, lo: float, hi: float, default: float) -> float:
+      try:
+        s = self.params.get(name, encoding='utf8')
+        if not s:
+          return default
+        return max(lo, min(hi, float(s)))
+      except Exception:
+        return default
+
+    self.adjacent_target = _get_f("np_lat_soc_adjacent_offset", 1.5, 5.0, 2.8)
+    self.edge_target = _get_f("np_lat_soc_edge_offset", 1.0, 3.0, 1.6)
+    self.lane_target = _get_f("np_lat_soc_lane_offset", 0.8, 2.0, 1.2)
+    # TTA threshold (seconds) to start trigger for adjacent objects
+    self.tta_thresh_s = _get_f("np_lat_soc_tta_sec", 1.0, 10.0, 4.0)
+    # Optional faster return rate when RETURNING
+    try:
+      s = self.params.get("np_lat_soc_return_rate", encoding='utf8')
+      if s:
+        self._return_rate_mps = max(0.05, min(0.5, float(s)))
+    except Exception:
+      pass
+
+  @staticmethod
+  def _nearest_side_dist(vals, positive: bool) -> Optional[float]:
+    side = [y for y in vals if (y > 0 if positive else y < 0)]
+    if not side:
+      return None
+    return abs(min(side, key=lambda y: abs(y)))
+
+  def _adaptive_offset_limits(self, left_dist: Optional[float], right_dist: Optional[float]) -> tuple[float, float]:
+    """Compute maximum allowed offset to left/right based on lane-line distances
+       and a conservative vehicle width + safety margin model.
+
+       Returns (left_limit, right_limit) as positive magnitudes in meters.
+    """
+    # Vehicle half width + margin; constants tuned conservatively
+    vehicle_half = 1.9 / 2.0
+    margin = 0.20
+    need = vehicle_half + margin
+    # Use 60% of the remaining space conservatively
+    left_limit = 0.0
+    right_limit = 0.0
+    if left_dist is not None:
+      rem = max(0.0, left_dist - need)
+      left_limit = rem * 0.6
+    if right_dist is not None:
+      rem = max(0.0, right_dist - need)
+      right_limit = rem * 0.6
+    # Clamp by controller-wide hard cap
+    return (min(self._max_offset_m, left_limit), min(self._max_offset_m, right_limit))
+
+  def _constraints_from_model(self, model_v2) -> tuple[float, float, float, float]:
+    """Derive inequality constraints from lane lines and road edges.
+       Returns (LB, UB, left_limit, right_limit) where:
+         - offset o must satisfy: LB <= o <= UB
+         - and o is bounded by [-left_limit, +right_limit]
+    """
+    LB = 0.0   # need at least this much to the right
+    UB = 0.0   # need at most this much to the left (negative value)
+    left_line = None
+    right_line = None
+    left_edge_cap = None
+    right_edge_cap = None
+    # Confidence thresholds
+    lane_prob_min = 0.5
+    edge_stds_max = 0.5
+    # Lane lines
+    if hasattr(model_v2, 'laneLines') and len(model_v2.laneLines) >= 1:
+      y_with_prob = []
+      # Try to fetch per-line probability if available; otherwise assume 1.0
+      probs = []
+      try:
+        probs = list(getattr(model_v2, 'laneLineProbs', []))
+      except Exception:
+        probs = []
+      for idx, line in enumerate(model_v2.laneLines):
+        try:
+          if len(line.y) > 0:
+            p = probs[idx] if idx < len(probs) else 1.0
+            y_with_prob.append((line.y[0], p))
+        except Exception:
+          pass
+      # Model coordinate frame: x forward, y left-positive.
+      # So left candidates have y > 0, right candidates have y < 0.
+      left_cands = [abs(y) for (y, p) in y_with_prob if y > 0.0 and p >= lane_prob_min]
+      right_cands = [abs(y) for (y, p) in y_with_prob if y < 0.0 and p >= lane_prob_min]
+      if left_cands:
+        left_line = min(left_cands)
+      if right_cands:
+        right_line = min(right_cands)
+      if left_line is not None:
+        deficit = self.lane_target - left_line
+        if deficit > 0:
+          LB = max(LB, deficit)
+      if right_line is not None:
+        deficit = self.lane_target - right_line
+        if deficit > 0:
+          UB = min(UB, -deficit)
+
+    # Road edges
+    if hasattr(model_v2, 'roadEdges') and len(model_v2.roadEdges) >= 1:
+      # Global confidence on edges using stds if available
+      edges_conf_ok = True
+      try:
+        re_stds = list(getattr(model_v2, 'roadEdgeStds', []))
+        if len(re_stds) > 0:
+          # use min std as best confidence proxy
+          edges_conf_ok = (min(re_stds) <= edge_stds_max)
+      except Exception:
+        edges_conf_ok = True
+      if edges_conf_ok:
+        y_samples = []
+        for edge in model_v2.roadEdges:
+          try:
+            if len(edge.y) > 0:
+              y_samples.append(edge.y[0])
+          except Exception:
+            pass
+        # Model frame: y left-positive
+        left_edge = self._nearest_side_dist(y_samples, positive=True)
+        right_edge = self._nearest_side_dist(y_samples, positive=False)
+        if left_edge is not None:
+          deficit = self.edge_target - left_edge
+          if deficit > 0:
+            LB = max(LB, deficit)
+          left_edge_cap = left_edge
+        if right_edge is not None:
+          deficit = self.edge_target - right_edge
+          if deficit > 0:
+            UB = min(UB, -deficit)
+          right_edge_cap = right_edge
+
+    # Adaptive allowed limits from lane lines if available
+    # Derive caps: prefer lane lines; if missing, use road edges for caps
+    cap_left_source = left_line if left_line is not None else left_edge_cap
+    cap_right_source = right_line if right_line is not None else right_edge_cap
+    left_limit, right_limit = self._adaptive_offset_limits(cap_left_source, cap_right_source)
+    return LB, UB, left_limit, right_limit
+
+  def _constraints_from_radar(self, live_tracks: Optional[car.RadarData]) -> tuple[float, float]:
+    """Vision-only mode: radar constraints disabled."""
+    return 0.0, 0.0
+
+  def _rate_limit(self, target: float, dt: float) -> float:
+    if dt <= 0:
+      return self._current_offset_m
+    # Use a faster rate when in RETURNING state
+    rate = self._return_rate_mps if self._state == 3 else self._offset_rate_mps
+    max_step = rate * dt
+    delta = target - self._current_offset_m
+    if abs(delta) <= max_step:
+      self._current_offset_m = target
+    else:
+      self._current_offset_m += math.copysign(max_step, delta)
+    if self._current_offset_m > self._max_offset_m:
+      self._current_offset_m = self._max_offset_m
+    elif self._current_offset_m < -self._max_offset_m:
+      self._current_offset_m = -self._max_offset_m
+    return self._current_offset_m
+
+  def compute_curvature_delta(self, sm, lat_active: bool) -> float:
+    self._read_params()
+
+    CS = sm['carState']
+    v_ego = CS.vEgo
+    v_kph = v_ego * 3.6
+
+    if not lat_active:
+      self._current_offset_m = 0.0
+      self._last_update_t = time.monotonic()
+      self._enter_state(0)
+      return 0.0
+
+    if self.speed_kph_enable <= 0 or v_kph < float(self.speed_kph_enable):
+      self._current_offset_m = 0.0
+      self._last_update_t = time.monotonic()
+      self._enter_state(0)
+      return 0.0
+
+    # Curve gating: use model road curvature to disable SOC on sharp turns
+    try:
+      k_model = abs(sm['modelV2'].action.desiredCurvature)
+      ay = (v_ego * v_ego) * k_model
+      if ay > self._ay_thresh:
+        self._enter_state(3)
+        self._current_offset_m = 0.0
+        return 0.0
+    except Exception:
+      pass
+
+    model_v2 = sm['modelV2']
+    try:
+      if model_v2.meta.laneChangeState != LaneChangeState.off:
+        self._current_offset_m = 0.0
+        self._last_update_t = time.monotonic()
+        self._enter_state(3)  # RETURNING while lane change
+        return 0.0
+    except Exception:
+      pass
+
+    # ------------------------------------------------------------------
+    # Build offset constraints from model (lanes/edges) only (vision-only).
+    # Sign conventions:
+    #   - Model frame: y > 0 is LEFT, y < 0 is RIGHT.
+    #   - Offset o (SOC): POSITIVE = SHIFT LEFT, NEGATIVE = SHIFT RIGHT.
+    #
+    # We solve for o in the left-positive frame:
+    #   min_left_shift <= o <= max_left_shift
+    #   - min_left_shift: minimum REQUIRED left shift from RIGHT-side constraints
+    #   - max_left_shift: maximum ALLOWED left shift from LEFT-side constraints
+    # Physical lane-space caps: -right_limit <= o <= left_limit
+    #   - left_limit/right_limit are positive magnitudes derived from lanes/edges.
+    # ------------------------------------------------------------------
+    LB_model, UB_model, left_limit, right_limit = self._constraints_from_model(model_v2)
+
+    # Convert to the model's left-positive offset frame for clarity:
+    # right-frame constraints [LB_model, UB_model] become left-frame [-UB_model, -LB_model]
+    min_left_shift_from_model = -UB_model
+    max_left_shift_from_model = -LB_model
+    # Apply physical caps in left-positive frame: -right_limit <= o <= left_limit
+    min_left_shift = max(min_left_shift_from_model, -right_limit)
+    max_left_shift = min(max_left_shift_from_model, left_limit)
+
+    # Pick a target within (or nearest to) the feasible interval with clear priority:
+    #   1) Prefer 0 if feasible
+    #   2) If feasible, choose midpoint for balance
+    #   3) If infeasible, choose side with larger deficit
+    target_offset = self._choose_target_offset(min_left_shift, max_left_shift)
+
+    # TTA gating to prevent offset for far adjacent objects (radar/model-based)
+    # Only gate when there is no lane/edge deficit (pure adjacent-object case)
+    if target_offset != 0.0 and LB_model == 0.0 and UB_model == 0.0:
+      tta_left, tta_right, have_tta = self._estimate_tta_lr(sm)
+      self._dbg_tta_left, self._dbg_tta_right = tta_left, tta_right
+      if have_tta:
+        tta_thresh = self._get_tta_threshold(sm)
+        self._dbg_tta_thresh = tta_thresh
+        if target_offset > 0.0 and tta_right > tta_thresh:
+          target_offset = 0.0
+        elif target_offset < 0.0 and tta_left > tta_thresh:
+          target_offset = 0.0
+    else:
+      # No adjacent-only case; clear TTA telemetry to zeros
+      self._dbg_tta_left = 0.0
+      self._dbg_tta_right = 0.0
+      self._dbg_tta_thresh = 0.0
+
+    # State machine to avoid continuous triggering
+    target_offset = self._apply_state_machine(target_offset, sm)
+
+    now = time.monotonic()
+    dt = now - self._last_update_t
+    self._last_update_t = now
+    current_offset = self._rate_limit(target_offset, dt)
+    self._dbg_offset = current_offset
+    self._dbg_state = self._state
+
+    preview_m = max(20.0, v_ego * 2.0)
+    if preview_m <= 0.0:
+      return 0.0
+    k_delta = 2.0 * current_offset / (preview_m ** 2)
+    if k_delta > self._max_curvature:
+      k_delta = self._max_curvature
+    elif k_delta < -self._max_curvature:
+      k_delta = -self._max_curvature
+    # Curvature-relative clamp to never dominate on curves
+    try:
+      model_k = abs(sm['modelV2'].action.desiredCurvature)
+    except Exception:
+      model_k = 0.0
+    if model_k > 1e-4:
+      rel_cap = self._rel_k_frac * model_k
+      if k_delta > rel_cap:
+        k_delta = rel_cap
+      elif k_delta < -rel_cap:
+        k_delta = -rel_cap
+
+    # Store telemetry
+    self._dbg_kdelta = k_delta
+    try:
+      self._dbg_ay = (v_ego * v_ego) * abs(sm['modelV2'].action.desiredCurvature)
+    except Exception:
+      self._dbg_ay = 0.0
+    return float(k_delta)
+
+  def _choose_target_offset(self, min_left_shift: float, max_left_shift: float) -> float:
+    """Choose a target offset in the model's left-positive frame: [min_left_shift, max_left_shift].
+
+    - If 0 is feasible (min_left_shift <= 0 <= max_left_shift), prefer 0.
+    - If feasible (min_left_shift <= max_left_shift), choose midpoint for balance.
+    - If infeasible (min_left_shift > max_left_shift), choose the side with larger deficit.
+    """
+    if min_left_shift <= 0.0 <= max_left_shift:
+      return 0.0
+    if min_left_shift <= max_left_shift:
+      return (min_left_shift + max_left_shift) / 2.0
+    # infeasible: pick side with larger deficit (compare min_left vs -max_left)
+    return min_left_shift if min_left_shift >= -max_left_shift else max_left_shift
+
+  def get_telemetry(self):
+    return {
+      'state': int(self._dbg_state),
+      'offset': float(self._dbg_offset),
+      'k_delta': float(self._dbg_kdelta),
+      'ay': float(self._dbg_ay),
+      'tta_left': float(self._dbg_tta_left),
+      'tta_right': float(self._dbg_tta_right),
+      'tta_thresh': float(self._dbg_tta_thresh),
+      'active': bool(self._dbg_state in (1, 2) and abs(self._dbg_offset) > 1e-3),
+    }
+
+  def _enter_state(self, new_state: int):
+    if new_state != self._state:
+      self._state = new_state
+      self._state_enter_t = time.monotonic()
+
+  def _apply_state_machine(self, demanded_offset: float, sm) -> float:
+    """Return the commanded target offset after applying hysteresis and state gating."""
+    now = time.monotonic()
+    need = abs(demanded_offset)
+    sign = 1.0 if demanded_offset >= 0.0 else -1.0
+
+    # Cooldown prevents immediate re-trigger after returning
+    if now < self._cooldown_until_t:
+      demanded_offset = 0.0
+      need = 0.0
+
+    if self._state == 0:  # IDLE
+      if need >= self._activate_thresh_m and now >= self._cooldown_until_t:
+        self._enter_state(1)  # OFFSETTING
+        self._active_side_sign = 1 if demanded_offset >= 0.0 else -1
+        # Compute smart maintain time: taking-over time * 2
+        self._maintain_until_t = now + self._compute_overtake_delay(sm, self._active_side_sign)
+      else:
+        return 0.0
+
+    if self._state == 1:  # OFFSETTING
+      # Move toward demanded offset
+      if need < self._release_thresh_m:
+        if now >= self._maintain_until_t:
+          self._enter_state(3)  # RETURNING
+        else:
+          # Hold minimal offset until maintain time elapses
+          return self._active_side_sign * max(self._release_thresh_m, need)
+      elif abs(self._current_offset_m - demanded_offset) <= self._steady_tol_m:
+        self._enter_state(2)  # MAINTAINING
+      return demanded_offset
+
+    if self._state == 2:  # MAINTAINING
+      held_s = now - self._state_enter_t
+      if need < self._release_thresh_m:
+        if now >= self._maintain_until_t and held_s >= self._min_hold_s:
+          self._enter_state(3)  # RETURNING
+          return 0.0
+        else:
+          # Continue to maintain until maintain time elapses
+          return self._active_side_sign * max(self._release_thresh_m, need)
+      # Keep following demanded (may vary slightly as constraints shift)
+      return demanded_offset
+
+    if self._state == 3:  # RETURNING
+      # Command return to center
+      returning_s = now - self._state_enter_t
+      if abs(self._current_offset_m) <= self._release_thresh_m and returning_s >= self._min_return_s:
+        self._enter_state(0)
+        self._cooldown_until_t = now + self._cooldown_s
+        return 0.0
+      return 0.0
+
+    # Fallback
+    return 0.0
+
+  def _compute_overtake_delay(self, sm, side_sign: int) -> float:
+    """Estimate maintain time = 2 * max(TTA_left, TTA_right) (vision-only).
+       TTA ≈ x_long / max(0.5, v_ego - v_lead) using model leads.
+    """
+    try:
+      min_delay = 1.0
+      max_delay = 8.0
+      tta_left, tta_right, _ = self._estimate_tta_lr(sm)
+
+      tta_max = max(tta_left, tta_right)
+      if tta_max <= 0.0:
+        # fallback: modest default when no estimation available
+        tta_max = 2.0
+
+      delay = 2.0 * tta_max
+      return max(min_delay, min(max_delay, delay))
+    except Exception:
+      return 2.0
+
+  def _estimate_tta_lr(self, sm) -> tuple[float, float, bool]:
+    """Estimate left/right time-to-approach using model leads only (vision-only).
+       Returns (tta_left, tta_right, have_estimation)."""
+    try:
+      v_ego = sm['carState'].vEgo
+      min_closing = 0.5
+      # Use model leads (leadsV3) as proxy for adjacent when lateral |y| exceeds side threshold
+      tta_left = 0.0
+      tta_right = 0.0
+      model_v2 = sm['modelV2']
+      if hasattr(model_v2, 'leadsV3') and model_v2.leadsV3:
+        for lead in model_v2.leadsV3:
+          try:
+            if len(lead.x) == 0 or len(lead.v) == 0 or len(lead.y) == 0:
+              continue
+            x = lead.x[0]
+            v_lead = lead.v[0]
+            y = lead.y[0]
+            if not (0.5 <= x <= 80.0):
+              continue
+            closing = max(min_closing, v_ego - v_lead)
+            tta = x / closing
+            # Model y: left positive; treat |y| beyond threshold as adjacent on that side
+            if y > self._lane_side_threshold:
+              tta_left = max(tta_left, tta)
+            elif y < -self._lane_side_threshold:
+              tta_right = max(tta_right, tta)
+          except Exception:
+            continue
+      return tta_left, tta_right, (tta_left > 0.0 or tta_right > 0.0)
+    except Exception:
+      return 0.0, 0.0, False
+
+  def _get_tta_threshold(self, sm) -> float:
+    """Map longitudinal behavior to TTA threshold.
+       aggressive -> 4s, standard/default -> 6s, relaxed -> 8s.
+       Falls back to param if personality not available.
+    """
+    try:
+      pers = sm['selfdriveState'].personality
+      # Prefer named enum if available
+      try:
+        if pers == log.LongitudinalPersonality.aggressive:
+          return 4.0
+        if pers == log.LongitudinalPersonality.relaxed:
+          return 8.0
+        return 6.0
+      except Exception:
+        # Fallback to numeric raw value if present
+        val = getattr(pers, 'raw', None)
+        if val is None:
+          return self.tta_thresh_s
+        if val == 1:  # commonly aggressive=1
+          return 4.0
+        if val == 2:  # commonly relaxed=2
+          return 8.0
+        return 6.0
+    except Exception:
+      return self.tta_thresh_s

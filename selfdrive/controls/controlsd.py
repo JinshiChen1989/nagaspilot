@@ -18,6 +18,7 @@ from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, S
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
+from nagaspilot.selfdrive.controls.lib.np_soc_controller import NpSOCController
 
 State = log.SelfdriveState.OpenpilotState
 LaneChangeState = log.LaneChangeState
@@ -59,6 +60,7 @@ class Controls:
 
     self.alka_enabled = self.params.get_bool("dp_lat_alka")
     self.alka_active = False
+    self.soc = NpSOCController()
 
   def update(self):
     self.sm.update(15)
@@ -121,6 +123,12 @@ class Controls:
     # Steering PID loop and lateral MPC
     # Reset desired curvature to current to avoid violating the limits on engage
     new_desired_curvature = model_v2.action.desiredCurvature if CC.latActive else self.curvature
+    # Apply Smart Offset Controller curvature delta
+    try:
+      soc_k_delta = self.soc.compute_curvature_delta(self.sm, CC.latActive)
+      new_desired_curvature += soc_k_delta
+    except Exception as e:
+      cloudlog.warning(f"SOC curvature compute error: {e}")
     self.desired_curvature, curvature_limited = clip_curvature(CS.vEgo, self.desired_curvature, new_desired_curvature, lp.roll)
 
     actuators.curvature = self.desired_curvature
@@ -185,6 +193,17 @@ class Controls:
     dat.valid = True
     ncs = dat.dpControlsState
     ncs.alkaActive = self.alka_active
+    # SOC telemetry (best-effort; ignore if fields absent)
+    try:
+      soc_dbg = self.soc.get_telemetry()
+      ncs.socActive = bool(soc_dbg.get('active', False))
+      ncs.socState = int(soc_dbg.get('state', 0))
+      ncs.socOffset = float(soc_dbg.get('offset', 0.0))
+      ncs.socTtaLeft = float(soc_dbg.get('tta_left', 0.0))
+      ncs.socTtaRight = float(soc_dbg.get('tta_right', 0.0))
+      ncs.socTtaThresh = float(soc_dbg.get('tta_thresh', 0.0))
+    except Exception:
+      pass
     self.pm.send('dpControlsState', dat)
 
     # controlsState

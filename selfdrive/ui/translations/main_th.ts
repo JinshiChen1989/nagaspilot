@@ -327,6 +327,38 @@ Values displayed as km/h, stored as mph
       <translation>ปิด = ปิดใช้งานระบบช่วยเปลี่ยนเลนอัตโนมัติ</translation>
     </message>
     <message>
+      <source>Smart Offset Controller (SOC) Speed:</source>
+      <translation>ความเร็วระบบควบคุมออฟเซ็ตอัจฉริยะ (SOC):</translation>
+    </message>
+    <message>
+      <source>Off = Disable Smart Offset Controller</source>
+      <translation>ปิด = ปิดใช้งานระบบควบคุมออฟเซ็ตอัจฉริยะ</translation>
+    </message>
+    <message>
+      <source>Minimum Safety Adjacent Vehicle Distance:</source>
+      <translation>ระยะห่างขั้นต่ำเพื่อความปลอดภัยจากรถยนต์ข้างเคียง:</translation>
+    </message>
+    <message>
+      <source>Center-to-center distance from adjacent vehicles to trigger lateral offset</source>
+      <translation>ระยะห่างจากจุดศูนย์กลางถึงรถยนต์ข้างเคียงเพื่อเปิดการออฟเซ็ตด้านข้าง</translation>
+    </message>
+    <message>
+      <source>Mimumum Safety Road Edge Distance:</source>
+      <translation>ระยะห่างขั้นต่ำเพื่อความปลอดภัยจากขอบถนน:</translation>
+    </message>
+    <message>
+      <source>Center-to-center distance from road edges to trigger lateral offset</source>
+      <translation>ระยะห่างจากจุดศูนย์กลางถึงขอบถนนเพื่อเปิดการออฟเซ็ตด้านข้าง</translation>
+    </message>
+    <message>
+      <source>Mimumum Safety Lane Line Distance:</source>
+      <translation>ระยะห่างขั้นต่ำเพื่อความปลอดภัยจากเส้นเลน:</translation>
+    </message>
+    <message>
+      <source>Center-to-center distance from lane lines to trigger lateral offset</source>
+      <translation>ระยะห่างจากจุดศูนย์กลางถึงเส้นเลนเพื่อเปิดการออฟเซ็ตด้านข้าง</translation>
+    </message>
+    <message>
       <source> sec</source>
       <translation> วินาที</translation>
     </message>

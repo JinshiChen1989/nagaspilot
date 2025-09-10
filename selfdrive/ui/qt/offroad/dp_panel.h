@@ -28,4 +28,9 @@ private:
   void showEvent(QShowEvent *event) override;
 
   ParamDoubleSpinBoxControl* lca_sec_toggle;
+  
+  // SOC toggle controls
+  ParamDoubleSpinBoxControl* soc_adjacent_toggle;
+  ParamDoubleSpinBoxControl* soc_edge_toggle;
+  ParamDoubleSpinBoxControl* soc_lane_toggle;
 };

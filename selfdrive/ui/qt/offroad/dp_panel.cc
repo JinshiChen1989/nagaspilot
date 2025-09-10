@@ -20,10 +20,24 @@ void DPPanel::add_lateral_toggles() {
       tr("Block lane change assist when the system detects the road edge.\nNOTE: This will show 'Car Detected in Blindspot' warning.")
     },
   };
-  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("Lane Change Assist (LCA) Speed:"), 
-    tr("Off = Disable Lane Change Assist"), 
-    "", 0, 160, 5, tr(" km/h"), tr("Off"));
-  lca_sec_toggle = new ParamDoubleSpinBoxControl("dp_lat_lca_auto_sec", QString::fromUtf8("　") + tr("Auto Lane Change Assist (LCA) after:"), tr("Off = Disable Auto Lane Change Assist."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
+  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("Lane Change Assist (LCA) Speed:"),
+    tr("Off = Disable Lane Change Assist"),
+    "", 0, 160, 10, tr(" km/h"), tr("Off"));
+  lca_sec_toggle = new ParamDoubleSpinBoxControl("dp_lat_lca_auto_sec", QString::fromUtf8("　　") + tr("Auto Lane Change Assist (LCA) after:"), tr("Off = Disable Auto Lane Change Assist."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
+
+  // SOC (Smart Offset Controller) parameters
+  auto soc_speed_toggle = new ParamSpinBoxControl("np_lat_soc_speed", tr("Smart Offset Controller (SOC) Speed:"),
+    tr("Off = Disable Smart Offset Controller"),
+    "", 0, 80, 10, tr(" km/h"), tr("Off"));
+  soc_adjacent_toggle = new ParamDoubleSpinBoxControl("np_lat_soc_adjacent_offset", QString::fromUtf8("　　") + tr("Minimum Safety Adjacent Vehicle Distance:"),
+    tr("Center-to-center distance from adjacent vehicles to trigger lateral offset"),
+    "", 2.4, 3.2, 0.1, tr(" m"));
+  soc_edge_toggle = new ParamDoubleSpinBoxControl("np_lat_soc_edge_offset", QString::fromUtf8("　　") + tr("Mimumum Safety Road Edge Distance:"),
+    tr("Center-to-center distance from road edges to trigger lateral offset"),
+    "", 1.2, 2.0, 0.1, tr(" m"));
+  soc_lane_toggle = new ParamDoubleSpinBoxControl("np_lat_soc_lane_offset", QString::fromUtf8("　　") + tr("Mimumum Safety Lane Line Distance:"),
+    tr("Center-to-center distance from lane lines to trigger lateral offset"),
+    "", 0.8, 1.6, 0.1, tr(" m"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -34,6 +48,13 @@ void DPPanel::add_lateral_toggles() {
       addItem(label);
       addItem(lca_speed_toggle);
       addItem(lca_sec_toggle);
+
+      // Add SOC controls
+      addItem(soc_speed_toggle);
+      addItem(soc_adjacent_toggle);
+      addItem(soc_edge_toggle);
+      addItem(soc_lane_toggle);
+
       has_toggle = true;
       continue;
     }
@@ -132,8 +153,8 @@ void DPPanel::add_ui_toggles() {
       tr("Why not?"),
     },
   };
-  auto hide_hud = new ParamSpinBoxControl("dp_ui_hide_hud_speed_kph", tr("Hide HUD When Moves above:"), 
-    tr("To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.\nOff = Stock Behavior"), 
+  auto hide_hud = new ParamSpinBoxControl("dp_ui_hide_hud_speed_kph", tr("Hide HUD When Moves above:"),
+    tr("To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.\nOff = Stock Behavior"),
     "", 0, 120, 5, tr(" km/h"), tr("Off"));
 
   QWidget *label = nullptr;
@@ -267,12 +288,25 @@ void DPPanel::updateStates() {
   fs_watch->addParam("dp_lon_ext_radar");
   fs_watch->addParam("dp_lon_acm");
 
+  // SOC parameters
+  fs_watch->addParam("np_lat_soc_speed");
+  fs_watch->addParam("np_lat_soc_adjacent_offset");
+  fs_watch->addParam("np_lat_soc_edge_offset");
+  fs_watch->addParam("np_lat_soc_lane_offset");
+
   if (!isVisible()) {
     return;
   }
 
   // do state change logic here
   lca_sec_toggle->setVisible(std::atoi(params.get("dp_lat_lca_speed").c_str()) > 0);
+
+  // SOC visibility logic - show sub-parameters only when SOC is enabled
+  bool soc_enabled = std::atoi(params.get("np_lat_soc_speed").c_str()) > 0;
+  soc_adjacent_toggle->setVisible(soc_enabled);
+  soc_edge_toggle->setVisible(soc_enabled);
+  soc_lane_toggle->setVisible(soc_enabled);
+
   if (vehicle_has_long_ctrl) {
     toggles["dp_lon_acm_downhill"]->setVisible(params.getBool("dp_lon_acm"));
   }

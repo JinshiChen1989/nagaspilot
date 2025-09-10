@@ -12,6 +12,12 @@ $Cxx.namespace("cereal");
 
 struct DpControlsState @0x81c2f05a394cf4af {
   alkaActive @0 :Bool;
+  socActive  @1 :Bool;
+  socState   @2 :UInt8;     # 0=IDLE,1=OFFSETTING,2=MAINTAINING,3=RETURNING
+  socOffset  @3 :Float32;   # current lateral offset (m)
+  socTtaLeft @4 :Float32;   # seconds
+  socTtaRight@5 :Float32;   # seconds
+  socTtaThresh @6 :Float32; # seconds
 }
 
 struct ModelExt @0xaedffd8f31e7b55d {
