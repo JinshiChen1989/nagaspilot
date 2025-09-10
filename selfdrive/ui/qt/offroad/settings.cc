@@ -431,7 +431,7 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
     {tr("Option(1)"), toggles},
     {tr("Option(2)"), new DPPanel(this)},
     {tr("Software"), new SoftwarePanel(this)},
-    {tr("Developer"), new DeveloperPanel(this)},
+    // {tr("Developer"), new DeveloperPanel(this)}, // commented out per request
   };
 
   nav_btns = new QButtonGroup(this);

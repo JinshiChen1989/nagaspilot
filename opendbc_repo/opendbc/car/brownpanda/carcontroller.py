@@ -15,7 +15,7 @@ from openpilot.common.params import Params
 
 # Import DTSA controller for BYD models (DragonPilot pattern)
 try:
-  from nagaspilot.controls.lib.np_dtsa_controller import NPDTSAController
+  from nagaspilot.selfdrive.controls.lib.np_dtsa_controller import NPDTSAController
   DTSA_AVAILABLE = True
 except ImportError:
   DTSA_AVAILABLE = False

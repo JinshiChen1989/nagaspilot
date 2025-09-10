@@ -339,16 +339,8 @@ Values displayed as km/h, stored as mph
       <translation>การควบคุมคันเร่ง/เบรค</translation>
     </message>
     <message>
-      <source>Use External Radar</source>
-      <translation>ใช้เรดาร์จากภายนอก</translation>
-    </message>
-    <message>
-      <source>See https://github.com/eFiniLan/openpilot-ext-radar-addon for more information.</source>
-      <translation>ดูข้อมูลเพิ่มเติมที่ https://github.com/eFiniLan/openpilot-ext-radar-addon</translation>
-    </message>
-    <message>
-      <source>Enable Adaptive Coasting Mode (ACM)</source>
-      <translation>เปิดใช้งานโหมดขับขี่แบบประหยัด (ACM)</translation>
+      <source>Adaptive Coasting Mode (ACM)</source>
+      <translation>โหมดขับขี่แบบประหยัด (ACM)</translation>
     </message>
     <message>
       <source>Adaptive Coasting Mode (ACM) reduces braking to allow smoother coasting when appropriate.
@@ -357,20 +349,28 @@ DOES NOT WORK with Experimental Mode enabled.</source>
 โหมดนี้ไม่สามารถทำงานร่วมกับโหมดทดลองได้</translation>
     </message>
     <message>
-      <source>Downhill Only</source>
-      <translation>เฉพาะเวลาลงเนิน</translation>
-    </message>
-    <message>
-      <source>Limited to downhill driving.</source>
-      <translation>จำกัดการใช้งานเฉพาะเวลาลงเนิน</translation>
-    </message>
-    <message>
       <source>Adaptive Experimental Mode (AEM)</source>
-      <translation>โหมดทดลองแบบปรับเปลี่ยนได้ (AEM)</translation>
+      <translation>ระบบปรับเปลี่ยนโหมดการขับขี่อัตโนมัติ (AEM)</translation>
     </message>
     <message>
       <source>Adaptive mode switcher between ACC and Blended based on driving context.</source>
       <translation>สลับโหมดอัตโนมัติระหว่าง ACC และ Blended ตามสถานการณ์การขับขี่</translation>
+    </message>
+    <message>
+      <source>Vision Turn Speed Control (V-TSC)</source>
+      <translation>ระบบควบคุมความเร็วตามโค้งด้วยกล้อง (V‑TSC)</translation>
+    </message>
+    <message>
+      <source>Adjust speed based on vision curvature.</source>
+      <translation>ปรับความเร็วตามความโค้งที่ตรวจจับด้วยกล้อง</translation>
+    </message>
+    <message>
+      <source>Map Turn Speed Control (M-TSC)</source>
+      <translation>ระบบควบคุมความเร็วตามโค้งด้วยแผนที่ (M‑TSC)</translation>
+    </message>
+    <message>
+      <source>Adjust speed based on map curvature.</source>
+      <translation>ปรับความเร็วตามความโค้งจากแผนที่</translation>
     </message>
     <message>
       <source>UI</source>

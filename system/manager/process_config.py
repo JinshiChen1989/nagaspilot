@@ -116,6 +116,8 @@ procs = [
   PythonProcess("uploader", "system.loggerd.uploader", always_run),
   PythonProcess("statsd", "system.statsd", always_run),
   PythonProcess("feedbackd", "selfdrive.ui.feedback.feedbackd", only_onroad, enabled=not os.getenv("LITE")),
+  # Offline map manager (nagaspilot, sunnypilot-style params contract)
+  PythonProcess("np_mapdd", "nagaspilot.selfdrive.mapd.np_mapd_manager", always_run),
 
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], or_(notcar, and_(dashy_with_video, only_onroad))),

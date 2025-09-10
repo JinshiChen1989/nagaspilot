@@ -22,16 +22,17 @@ def main():
   sm = messaging.SubMaster(['carControl', 'carState', 'controlsState', 'liveParameters', 'radarState', 'modelV2', 'selfdriveState'],
                            poll='modelV2')
 
-  dp_flags = 0
-  if params.get_bool("dp_lon_acm"):
-    dp_flags |= DPFlags.ACM
-    if params.get_bool("dp_lon_acm_downhill"):
-      dp_flags |= DPFlags.ACM_DOWNHILL
-  if params.get_bool("dp_lon_aem"):
-    dp_flags |= DPFlags.AEM
   while True:
     sm.update()
     if sm.updated['modelV2']:
+      # Recompute DP flags each loop to support live toggles
+      dp_flags = 0
+      # ACM disabled: do not set ACM flag
+      if params.get_bool("dp_lon_aem"):
+        dp_flags |= DPFlags.AEM
+      if params.get_bool("dp_lon_vtsc") or params.get_bool("dp_lon_mtsc"):
+        dp_flags |= DPFlags.TSC
+
       longitudinal_planner.update(sm, dp_flags)
       longitudinal_planner.publish(sm, pm)
 

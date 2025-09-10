@@ -18,7 +18,6 @@ private:
   bool is_metric;
   bool is_onroad = false;
   bool vehicle_has_long_ctrl;
-  bool vehicle_has_radar_unavailable;
 
   void add_lateral_toggles();
   void add_longitudinal_toggles();

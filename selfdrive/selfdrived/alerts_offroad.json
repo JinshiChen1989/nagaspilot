@@ -46,4 +46,9 @@
     "severity": 1,
     "_comment": "Set extra field to lateral or longitudinal."
   }
+  ,
+  "Offroad_OSMUpdateRequired": {
+    "text": "Offline map data is missing. Download maps to enable road attributes like speed limits.",
+    "severity": 0
+  }
 }

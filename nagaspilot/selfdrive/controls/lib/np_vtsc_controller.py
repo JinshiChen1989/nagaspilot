@@ -1,577 +1,557 @@
-#!/usr/bin/env python3
-"""
+'''
 ====================================================================
-NAGASPILOT VTSC (VISION TURN SPEED CONTROL) - DCP FILTER LAYER
+NAGASPILOT V-TSC (VISION TURN SPEED CONTROL) - INTELLIGENT CURVE SPEED MANAGEMENT
 ====================================================================
+
+MIT Non-Commercial License
+Copyright (c) 2019, dragonpilot
+Adapted from SunnyPilot implementation for NagasPilot
 
 OVERVIEW:
-VTSC implements proven vision-based curve speed management using real-time
-model predictions to reduce speed before entering curves. Uses direct curvature
-physics (v = sqrt(a_lat / curvature)) instead of percentage-based reductions
-for natural, predictable speed control that follows road geometry.
+V-TSC implements vision-based turn speed control that automatically adjusts vehicle
+speed when approaching and navigating curves based on predicted lateral acceleration
+from the camera vision system, improving safety and comfort during cornering.
 
 CORE FUNCTIONALITY:
-- Real-time vision model curvature calculation from trajectory data
-- Physics-based safe speed calculation using lateral acceleration limits
-- Proactive speed reduction before curve entry points
-- Integration with DCP filter architecture for coordinated control
-- Fallback handling when vision data is unavailable or invalid
+- Vision-based curvature prediction and analysis
+- State machine for turn navigation phases (Entering, Turning, Leaving)
+- Lateral acceleration based speed management
+- Predictive speed adjustments for upcoming curves
+- Integration with existing longitudinal control systems
 
-ALGORITHM BASIS:
-Based on FrogPilot's proven Vision Turn Speed Controller with enhancements:
-- Improved curvature calculation from vision trajectory points
-- Enhanced safety margins and speed reduction limits
-- Better integration with existing cruise control systems
-- Coordinated operation with map-based MTSC system
-
-OPERATIONAL FLOW:
-1. Extract trajectory data from vision model (position, velocity, yaw)
-2. Calculate curvature using yaw_rate / velocity relationship
-3. Determine maximum curvature in upcoming trajectory segment
-4. Calculate safe speed using physics-based lateral acceleration model
-5. Apply safety margins and coordinate with other speed control systems
-
-CRITICAL DEPENDENCIES:
-- Requires DCP foundation active (np_dcp_mode > 0) to function
-- Needs valid vision model data from OpenPilot's driving model
-- Integration with longitudinal control for speed modifications
-- Coordination with MTSC for map-based vs vision-based priority
-
-Architecture Integration:
+OPERATIONAL LOGIC:
 ┌─────────────────────────────────────────────────────────────────┐
-│                    DCP Foundation                                │
-│              (Core Cruise Control)                               │
-├─────────────────────────────────────────────────────────────────┤
-│  VTSC Filter  │  MTSC Filter  │  VCSC Filter  │  PDA Filter     │
-│  (Vision-based│  (Map-based   │  (Comfort-    │  (Performance   │
-│   Speed ↓)    │   Speed ↓)    │   Speed ↓)    │   Speed ↑)      │
+│ DISABLED: No predicted turn or feature disabled                │
+│ ENTERING: Substantial turn predicted, adapting speed smoothly   │
+│ TURNING: Active cornering with acceleration management          │
+│ LEAVING: Road straightens, allowing speed recovery             │
 └─────────────────────────────────────────────────────────────────┘
 
-PRODUCTION READY:
-This implementation is complete and ready for production use.
-All debug logging has been removed except for essential error/warning logs.
-"""
+SAFETY FEATURES:
+- Minimum speed enforcement (20 km/h operation threshold)
+- Gas pedal override for immediate driver control
+- Balanced lateral acceleration limits (2.5 m/s²)
+- Multiple prediction sources with graceful fallbacks
+- State transition validation and error handling
 
-import math
+INTEGRATION POINTS:
+- OpenPilot longitudinal control for cruise management
+- ModelV2 for vision-based path prediction
+- LateralPlan for driving path polynomial fitting
+- CarState for vehicle dynamics and steering feedback
+
+EFFICIENCY BENEFITS:
+- Smooth speed transitions during curve approach
+- Reduced harsh braking on unexpected turns
+- Improved passenger comfort through predictive control
+- Optimized for highway and winding road scenarios
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, for non-commercial purposes only, subject to the following conditions:
+
+- The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+- Commercial use (e.g., use in a product, service, or activity intended to generate revenue) is prohibited without explicit written permission from dragonpilot. Contact ricklan@gmail.com for inquiries.
+- Any project that uses the Software must visibly mention the following acknowledgment: "This project uses software from dragonpilot and is licensed under a custom license requiring permission for use."
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+'''
+
 import numpy as np
-from enum import IntEnum
-from typing import Dict, Any, Optional
-from openpilot.common.params import Params
-from openpilot.common.realtime import DT_MDL
-from openpilot.common.filter_simple import FirstOrderFilter
-from openpilot.common.swaglog import cloudlog
+import time
+import math
+from enum import Enum
 
-# Remove np_logger references
-from openpilot.selfdrive.controls.lib.nagaspilot.np_dcp_profile import DCPFilterLayer, DCPFilterType, DCPFilterResult
-from openpilot.selfdrive.controls.lib.nagaspilot.np_gcf_helper import get_gradient_speed_factor
-from openpilot.selfdrive.controls.lib.nagaspilot.np_config import ParamCache, NP_KEYS
+from openpilot.common.params import Params
+from opendbc.car.common.conversions import Conversions as CV
+from openpilot.common.swaglog import cloudlog
+from openpilot.selfdrive.car.cruise import V_CRUISE_MAX
+from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
+# Inlined constants (removed np_common dependency)
+SPEED_THRESHOLD_CREEP = 2.0  # m/s - minimum speed for active control
 
 # ========================================================================
 # CONSTANTS & CONFIGURATION
 # ========================================================================
 
-class VTSCState(IntEnum):
-    """VTSC state machine states"""
-    DISABLED = 0      # VTSC disabled or DCP foundation inactive
-    MONITORING = 1    # Monitoring for curves but not limiting speed
-    ENTERING = 2      # Approaching curve, beginning speed reduction
-    TURNING = 3       # Actively in curve, maintaining safe speed
-    LEAVING = 4       # Exiting curve, allowing speed increase
+# V-TSC Operation Parameters
+NP_VTSC_MIN_V = 20 * CV.KPH_TO_MS  # Do not operate under 20 km/h
+
+# Lateral Acceleration Thresholds (m/s²)
+NP_VTSC_ENTERING_PRED_LAT_ACC_TH = 1.3     # Predicted lat acc to trigger entering state (PROVEN SunnyPilot value)
+NP_VTSC_ABORT_ENTERING_PRED_LAT_ACC_TH = 1.1  # Abort entering if predictions drop (PROVEN SunnyPilot value)
+NP_VTSC_TURNING_LAT_ACC_TH = 1.6           # Current lat acc to trigger turning state (PROVEN SunnyPilot value)
+NP_VTSC_LEAVING_LAT_ACC_TH = 1.3           # Current lat acc to trigger leaving state (PROVEN SunnyPilot value)
+NP_VTSC_FINISH_LAT_ACC_TH = 1.1            # Current lat acc to finish turn cycle (PROVEN SunnyPilot value)
+
+# Vision Evaluation Parameters
+NP_VTSC_EVAL_STEP = 5.0        # meters, resolution of curvature evaluation
+NP_VTSC_EVAL_START = 20.0      # meters, distance ahead to start evaluation  
+NP_VTSC_EVAL_LENGTH = 150.0    # meters, distance ahead to stop evaluation (PROVEN SunnyPilot value)
+NP_VTSC_EVAL_RANGE = np.arange(NP_VTSC_EVAL_START, NP_VTSC_EVAL_LENGTH, NP_VTSC_EVAL_STEP)
+
+# Control Parameters
+# Lateral acceleration limits by driving personality (follows OpenPilot style)
+NP_VTSC_A_LAT_REG_COMFORT = 2.0    # Comfort driving (gentle)
+NP_VTSC_A_LAT_REG_NORMAL = 2.5     # Normal driving (balanced) - default
+NP_VTSC_A_LAT_REG_SPORT = 3.0      # Sport driving (aggressive)
+NP_VTSC_NO_OVERSHOOT_TIME_HORIZON = 4.0  # Time horizon for velocity target (s)
+
+# Smooth deceleration lookup for ENTERING state
+NP_VTSC_ENTERING_SMOOTH_DECEL_V = [-0.2, -1.0]    # min decel values (PROVEN SunnyPilot values)
+NP_VTSC_ENTERING_SMOOTH_DECEL_BP = [1.3, 3.0]     # lat acc breakpoints (PROVEN SunnyPilot values)
+
+# Acceleration lookup for TURNING state  
+NP_VTSC_TURNING_ACC_V = [0.5, 0.0, -0.4]  # acceleration values (PROVEN SunnyPilot values)
+NP_VTSC_TURNING_ACC_BP = [1.5, 2.3, 3.0]  # lat acc breakpoints (PROVEN SunnyPilot values)
+
+NP_VTSC_LEAVING_ACC = 0.5      # Comfortable acceleration for leaving turns (m/s²)
+NP_VTSC_MIN_LANE_PROB = 0.6    # Minimum lane probability for lane-based prediction
+
+# Trajectory size constant (from OpenPilot)
+TRAJECTORY_SIZE = 33
+
+# Debug flag
+NP_VTSC_DEBUG = False
 
 # ========================================================================
-# VTSC CONTROLLER IMPLEMENTATION
+# ENUMERATIONS
 # ========================================================================
 
-class NpVTSCController:
-    """NagasPilot Vision Turn Speed Controller - DCP Filter Implementation"""
+class VTSCState(Enum):
+    """V-TSC state machine enumeration following NagasPilot patterns"""
+    DISABLED = 0
+    ENTERING = 1  
+    TURNING = 2
+    LEAVING = 3
+
+# ========================================================================
+# UTILITY FUNCTIONS
+# ========================================================================
+
+def _debug_log(msg):
+    """Debug logging function"""
+    if NP_VTSC_DEBUG:
+        cloudlog.debug(f"[NP_VTSC]: {msg}")
+
+def eval_curvature(poly, x_vals):
+    """
+    Calculate curvature values from polynomial coefficients at given x positions
+    Uses standard curvature formula: |y''| / (1 + y'^2)^1.5
+    """
+    def curvature(x):
+        # Calculate curvature using polynomial derivatives
+        a = abs(2 * poly[1] + 6 * poly[0] * x) / (1 + (3 * poly[0] * x ** 2 + 2 * poly[1] * x + poly[2]) ** 2) ** 1.5
+        return a
     
-    def __init__(self):
+    return np.vectorize(curvature)(x_vals)
+
+def eval_lat_acc(v_ego, x_curv):
+    """
+    Calculate lateral acceleration from vehicle speed and curvature vector
+    Lateral acceleration = v² * curvature
+    """
+    def lat_acc(curv):
+        a = v_ego ** 2 * curv
+        return a
+    
+    return np.vectorize(lat_acc)(x_curv)
+
+def _description_for_state(state):
+    """Convert state enum to human readable string"""
+    if state == VTSCState.DISABLED:
+        return 'DISABLED'
+    elif state == VTSCState.ENTERING:
+        return 'ENTERING'
+    elif state == VTSCState.TURNING:
+        return 'TURNING'
+    elif state == VTSCState.LEAVING:
+        return 'LEAVING'
+    return f'UNKNOWN_{state}'
+
+# ========================================================================
+# V-TSC CONTROLLER IMPLEMENTATION
+# ========================================================================
+
+class VTSC:
+    """Vision Turn Speed Controller - NagasPilot Implementation"""
+    
+    # ========================================================================
+    # INITIALIZATION & CONFIGURATION
+    # ========================================================================
+    
+    def __init__(self, CP):
+        """Initialize V-TSC with default state following NagasPilot patterns"""
         # Parameter management (standardized interface)
         self.params = Params()
-        self.enabled = self.params.get_bool("NpVtscEnabled")
+        self.enabled = self.params.get_bool("dp_lon_vtsc")
+        
+        # Vehicle configuration
+        self._CP = CP
+        self._last_params_update = 0.0
+        
+        # Control state variables
+        self._op_enabled = False
+        self._gas_pressed = False
+        self._v_cruise_setpoint = 0.0
+        self._v_ego = 0.0
+        self._a_ego = 0.0
+        self._a_target = 0.0
+        self._v_overshoot = 0.0
+        self._state = VTSCState.DISABLED
+        
+        # Vision analysis variables
+        self._current_lat_acc = 0.0
+        self._max_v_for_current_curvature = 0.0
+        self._max_pred_lat_acc = 0.0
+        self._v_overshoot_distance = 200.0
+        self._lat_acc_overshoot_ahead = False
+        
+        self._reset_state()
         
         if self.enabled:
-            cloudlog.info("VTSC Controller initialized and enabled")
-        # Lightweight param cache to reduce I/O in hot loop
-        self._pc = ParamCache(ttl_ms=1000, params=self.params)
-        
-        # Core VTSC parameters (FrogPilot algorithm)
-        self.TARGET_LAT_A = 1.9         # m/s² target lateral acceleration
-        self.MIN_SPEED = 5.0            # m/s minimum speed limit
-        self.CURVE_THRESHOLD = 0.002    # 1/m minimum curvature to engage
-        self.ENTER_THRESHOLD = 0.7      # Factor to begin speed reduction
-        self.EXIT_THRESHOLD = 0.5       # Factor to allow speed increase
-        self.MAX_LOOKAHEAD = 50.0       # m maximum curve lookahead distance
-        
-        # Deceleration control parameters (configurable)
-        self.max_deceleration_rate = 2.0      # m/s² maximum deceleration
-        self.gentle_reduction_factor = 0.95   # Initial gentle reduction (5%)
-        self.aggressive_reduction_factor = 0.7 # Close-curve reduction (30%)
-        self.min_speed_modifier = 0.3         # Minimum 30% of original speed
-        
-        # State management
-        self.state = VTSCState.DISABLED
-        self.speed_limit = 0.0
-        self.dcp_dependency_met = False
-        
-        # Curvature tracking
-        self.current_curvature = 0.0
-        self.max_predicted_curvature = 0.0
-        self.distance_to_curve = 0.0
-        
-        # Filters for smooth operation
-        self.curvature_filter = FirstOrderFilter(0.0, 0.3, DT_MDL)
-        self.speed_limit_filter = FirstOrderFilter(0.0, 0.2, DT_MDL)
-        
-        # Performance tracking
-        self.curve_count = 0
-        self.speed_reduction_count = 0
-        self.last_active_time = 0.0
-        
-        # GCF integration
-        self.gcf_enabled = False
-        
-        if self.enabled:
-            cloudlog.info("Vision Turn Speed Controller ready")
-        else:
-            cloudlog.info("VTSC Controller initialized but disabled")
-    
-    def is_enabled(self) -> bool:
-        """Check if VTSC controller is enabled"""
-        return self.enabled and self.params.get_bool("NpVtscEnabled")
-    
-    def get_debug_info(self) -> Dict[str, Any]:
-        """Get debug information for VTSC controller"""
-        if not self.is_enabled():
-            return {"vtsc_enabled": False, "reason": "Controller disabled"}
-            
-        return {
-            "vtsc_enabled": True,
-            "state": self.state.name if hasattr(self.state, 'name') else str(self.state),
-            "current_curvature": round(self.current_curvature, 6),
-            "max_predicted_curvature": round(self.max_predicted_curvature, 6),
-            "distance_to_curve": round(self.distance_to_curve, 1),
-            "curve_count": self.curve_count,
-            "speed_reduction_count": self.speed_reduction_count,
-            "target_lat_accel": self.TARGET_LAT_A,
-            "dcp_dependency_met": self.dcp_dependency_met
-        }
-    
-    def read_params(self):
-        """Read VTSC parameters and check DCP dependency"""
-        try:
-            # CRITICAL: Check DCP dependency first
-            dcp_mode = self.params.get_int("np_dcp_mode")
-            self.dcp_dependency_met = (dcp_mode > 0)
-            
-            if not self.dcp_dependency_met:
-                self.enabled = False  # Force disable when DCP is off
-                if self.state != VTSCState.DISABLED:
-                    cloudlog.info(f"VTSC disabled: DCP foundation is off (np_dcp_mode={dcp_mode})")
-                return
-                
-            # Read VTSC-specific parameters (cached)
-            self.enabled = self._pc.get_bool(NP_KEYS['vtsc_enabled'], default=False)
-            
-            # Target lateral acceleration
-            try:
-                target_lat_a_str = self._pc.get(NP_KEYS['vtsc_max_lat_a'])
-                if target_lat_a_str:
-                    self.TARGET_LAT_A = max(0.5, min(3.0, float(target_lat_a_str)))  # Bounds: 0.5-3.0 m/s²
-            except (ValueError, TypeError):
-                self.TARGET_LAT_A = 1.9  # Default
-                
-            # Minimum speed limit
-            try:
-                min_speed_str = self._pc.get(NP_KEYS['vtsc_min_speed'])
-                if min_speed_str:
-                    self.MIN_SPEED = max(2.0, min(15.0, float(min_speed_str)))  # Bounds: 2.0-15.0 m/s
-            except (ValueError, TypeError):
-                self.MIN_SPEED = 5.0  # Default
-                
-            # Maximum deceleration rate
-            try:
-                decel_str = self._pc.get(NP_KEYS['vtsc_max_decel'])
-                if decel_str:
-                    self.max_deceleration_rate = max(1.0, min(3.5, float(decel_str)))  # Bounds: 1.0-3.5 m/s²
-            except (ValueError, TypeError):
-                self.max_deceleration_rate = 2.0  # Default
-                
-            # Gentle reduction factor (distant curves)
-            try:
-                gentle_str = self._pc.get(NP_KEYS['vtsc_gentle_reduction'])
-                if gentle_str:
-                    self.gentle_reduction_factor = max(0.8, min(0.98, float(gentle_str)))  # Bounds: 80%-98%
-            except (ValueError, TypeError):
-                self.gentle_reduction_factor = 0.95  # Default (5% reduction)
-                
-            # Aggressive reduction factor (close curves)
-            try:
-                aggressive_str = self._pc.get(NP_KEYS['vtsc_aggressive_reduction'])
-                if aggressive_str:
-                    self.aggressive_reduction_factor = max(0.5, min(0.9, float(aggressive_str)))  # Bounds: 50%-90%
-            except (ValueError, TypeError):
-                self.aggressive_reduction_factor = 0.7  # Default (30% reduction)
-                
-            # Curve sensitivity threshold
-            try:
-                curve_thresh_str = self._pc.get(NP_KEYS['vtsc_curve_thresh'])
-                if curve_thresh_str:
-                    self.CURVE_THRESHOLD = max(0.001, min(0.01, float(curve_thresh_str)))  # Bounds: 0.001-0.01
-            except (ValueError, TypeError):
-                self.CURVE_THRESHOLD = 0.002  # Default
-            
-            # GCF parameter reading
-            self.gcf_enabled = self._pc.get_bool(NP_KEYS['gcf_enabled'], default=False)
+            cloudlog.info("NP V-TSC Controller initialized and enabled")
 
-    # Optional new evaluate() interface; safe, non-breaking addition
-    def evaluate(self, ctx: Dict[str, Any]) -> DCPFilterResult:
-        try:
-            target = float(ctx.get('speed_target', ctx.get('v_ego', 0.0)))
-            return self.process(target, ctx)
-        except Exception:
-            # Fail-safe no-op result
-            return DCPFilterResult(speed_modifier=1.0, active=False, reason="vtsc_error", priority=self.priority)
-                
-        except (ValueError, TypeError) as e:
-            cloudlog.warning(f"VTSC invalid parameter values: {e}, using safe defaults")
-            # Safe fallback: disable VTSC if parameters are invalid
-            self.enabled = False
-        except Exception as e:
-            cloudlog.error(f"VTSC unexpected parameter error: {e}, disabling for safety")
-            self.enabled = False
+    # ========================================================================
+    # STANDARDIZED INTERFACE (following NagasPilot patterns)
+    # ========================================================================
     
-    def calculate_curvature_from_vision(self, driving_context: Dict[str, Any]) -> bool:
-        """Calculate curvature from vision model data with safety validation"""
+    def is_enabled(self):
+        """Check if V-TSC controller is enabled via parameter"""
+        return self.enabled and self.params.get_bool("dp_lon_vtsc")
+        
+    @property
+    def state(self):
+        """Get current V-TSC state"""
+        return self._state
+    
+    @state.setter
+    def state(self, value):
+        """Set V-TSC state with logging and reset handling"""
+        if value != self._state:
+            _debug_log(f'State transition: {_description_for_state(self._state)} -> {_description_for_state(value)}')
+            if value == VTSCState.DISABLED:
+                self._reset_state()
+        self._state = value
+
+    @property
+    def a_target(self):
+        """Get target acceleration (returns ego acceleration when not active)"""
+        return self._a_target if self.is_active else self._a_ego
+
+    @property 
+    def v_turn(self):
+        """Get target velocity for turn (returns cruise setpoint when not active)"""
+        if not self.is_active:
+            return self._v_cruise_setpoint
+            
+        # Return overshoot velocity if overshoot predicted, otherwise calculate from acceleration
+        return self._v_overshoot if self._lat_acc_overshoot_ahead \
+            else self._v_ego + self._a_target * NP_VTSC_NO_OVERSHOOT_TIME_HORIZON
+
+    @property
+    def current_lat_acc(self):
+        """Get current lateral acceleration"""
+        return self._current_lat_acc
+
+    @property 
+    def max_pred_lat_acc(self):
+        """Get maximum predicted lateral acceleration"""
+        return self._max_pred_lat_acc
+
+    @property
+    def is_active(self):
+        """Check if V-TSC is currently active (not disabled)"""
+        return self._state != VTSCState.DISABLED
+
+    # ========================================================================
+    # STATE MANAGEMENT
+    # ========================================================================
+
+    def _reset_state(self):
+        """Reset internal state variables to defaults"""
+        self._current_lat_acc = 0.0
+        self._max_v_for_current_curvature = 0.0
+        self._max_pred_lat_acc = 0.0
+        self._v_overshoot_distance = 200.0
+        self._lat_acc_overshoot_ahead = False
+
+    def _update_params(self):
+        """Update parameters from storage with rate limiting"""
+        tm = time.time()
+        if tm > self._last_params_update + 5.0:
+            self.enabled = self.params.get_bool("dp_lon_vtsc")
+            self._last_params_update = tm
+            
+    def _get_lateral_comfort_limit(self) -> float:
+        """Get lateral acceleration limit based on driving personality (follows OpenPilot style)"""
         try:
-            # Safety check: validate input data
-            sm = driving_context.get('sm')
-            if not sm or 'modelV2' not in sm:
-                cloudlog.debug("VTSC: No vision model data available")
-                self.current_curvature = 0.0
-                return False
-                
-            md = sm['modelV2']
+            # Get driving personality from OpenPilot parameter (0=Comfort, 1=Normal, 2=Sport)
+            personality = self.params.get("LongitudinalPersonality", return_default=True)
+            if personality is not None:
+                personality_int = int(personality)
+                if personality_int == 0:    # Comfort
+                    return NP_VTSC_A_LAT_REG_COMFORT
+                elif personality_int == 2:  # Sport  
+                    return NP_VTSC_A_LAT_REG_SPORT
+                else:                       # Normal (default for 1 or invalid)
+                    return NP_VTSC_A_LAT_REG_NORMAL
+        except (ValueError, TypeError, AttributeError):
+            pass
+        return NP_VTSC_A_LAT_REG_NORMAL  # Default to Normal
+
+    def _update_calculations(self, sm):
+        """Update vision analysis and curvature calculations"""
+        if not self.is_enabled():
+            return
             
-            # Safety check: validate vision model structure
-            if not self._validate_vision_data(md):
-                return False
+        try:
+            # Get path polynomial from model data
+            path_poly = self._extract_path_polynomial(sm)
             
-            # Vision data already validated by _validate_vision_data
+            # Calculate current curvature from steering angle
+            current_curvature = abs(
+                sm['carState'].steeringAngleDeg * CV.DEG_TO_RAD / (self._CP.steerRatio * self._CP.wheelbase)
+            )
+            self._current_lat_acc = current_curvature * self._v_ego ** 2
             
-            # Get vision predictions
-            yaw_rate_plan = np.array(md.orientationRate.z)
-            velocity_plan = np.array(md.velocity.x)
+            # Get user-configurable lateral acceleration limit
+            lat_acc_limit = self._get_lateral_comfort_limit()
             
-            # Calculate curvature = yaw_rate / velocity (avoid division by zero)
-            valid_velocities = velocity_plan > 0.1
-            if not np.any(valid_velocities):
-                self.current_curvature = 0.0
-                return False
-                
-            # Calculate curvatures for valid points
-            curvatures = np.abs(yaw_rate_plan[valid_velocities] / velocity_plan[valid_velocities])
-            
-            # Get maximum curvature in prediction horizon
-            self.max_predicted_curvature = np.amax(curvatures)
-            self.curvature_filter.update(self.max_predicted_curvature)
-            self.current_curvature = self.curvature_filter.x
-            
-            # Estimate distance to maximum curvature
-            max_curve_idx = np.argmax(curvatures)
-            valid_indices = np.where(valid_velocities)[0]
-            if max_curve_idx < len(valid_indices) and hasattr(md, 'position'):
-                actual_idx = valid_indices[max_curve_idx]
-                if actual_idx < len(md.position.x):
-                    self.distance_to_curve = min(md.position.x[actual_idx], self.MAX_LOOKAHEAD)
-                else:
-                    self.distance_to_curve = 0.0
+            # Calculate maximum safe velocity for current curvature with bounds checking
+            if current_curvature > 1e-6:  # Avoid division by tiny numbers
+                safe_v = math.sqrt(lat_acc_limit / current_curvature)
+                # Bounds check: reasonable speed range 5-50 m/s (18-180 km/h)
+                self._max_v_for_current_curvature = max(5.0, min(safe_v, 50.0))
             else:
-                self.distance_to_curve = 0.0
+                self._max_v_for_current_curvature = V_CRUISE_MAX * CV.KPH_TO_MS
             
-            return True
+            # Predict maximum lateral acceleration ahead
+            pred_curvatures = eval_curvature(path_poly, NP_VTSC_EVAL_RANGE)
+            max_pred_curvature = np.amax(pred_curvatures)
+            self._max_pred_lat_acc = self._v_ego ** 2 * max_pred_curvature
             
-        except (IndexError, ValueError) as e:
-            cloudlog.warning(f"VTSC vision data error: {e}, using safe fallback")
-            # Safe fallback: clear curvature data
-            self.current_curvature = 0.0
-            self.max_predicted_curvature = 0.0
-            self.distance_to_curve = 0.0
-            return False
+            # Check for overshoot conditions
+            max_curvature_for_vego = lat_acc_limit / max(self._v_ego, 0.1) ** 2
+            lat_acc_overshoot_idxs = np.nonzero(pred_curvatures >= max_curvature_for_vego)[0]
+            self._lat_acc_overshoot_ahead = len(lat_acc_overshoot_idxs) > 0
+            
+            if self._lat_acc_overshoot_ahead:
+                # Bounds checking for overshoot speed calculation
+                if max_pred_curvature > 1e-6:  # Avoid division by tiny numbers
+                    safe_overshoot_v = math.sqrt(lat_acc_limit / max_pred_curvature)
+                    # Bounds check: reasonable speed range
+                    safe_overshoot_v = max(5.0, min(safe_overshoot_v, 50.0))
+                    self._v_overshoot = min(safe_overshoot_v, self._v_cruise_setpoint)
+                else:
+                    self._v_overshoot = self._v_cruise_setpoint
+                self._v_overshoot_distance = max(
+                    float(lat_acc_overshoot_idxs[0] * NP_VTSC_EVAL_STEP + NP_VTSC_EVAL_START), 
+                    NP_VTSC_EVAL_STEP
+                )
+                _debug_log(f'High LatAcc ahead. Dist: {self._v_overshoot_distance:.2f}m, v: {self._v_overshoot * CV.MS_TO_KPH:.2f}kph')
+                
         except Exception as e:
-            cloudlog.error(f"VTSC unexpected vision processing error: {e}, disabling vision processing")
-            # Safety: disable vision processing on unexpected errors
-            self.current_curvature = 0.0
-            self.max_predicted_curvature = 0.0
-            self.distance_to_curve = 0.0
-            return False
-    
-    def _validate_vision_data(self, md) -> bool:
-        """Validate vision model data for safety"""
-        # Check required attributes exist
-        if not hasattr(md, 'orientationRate') or not hasattr(md, 'velocity'):
-            cloudlog.warning("VTSC vision model missing orientation or velocity data")
-            return False
+            cloudlog.error(f"NP V-TSC calculation error: {e}")
+            self._reset_state()
+
+    def _extract_path_polynomial(self, sm):
+        """Extract path polynomial from available data sources with priority order"""
+        path_poly = None
+        model_data = sm['modelV2'] if sm.valid.get('modelV2', False) else None
+        lat_planner_data = sm['lateralPlan'] if sm.valid.get('lateralPlan', False) else None
         
-        # Check data length is sufficient
-        if len(md.orientationRate.z) < 10 or len(md.velocity.x) < 10:
-            cloudlog.warning("VTSC insufficient vision model data points")
-            return False
-        
-        # Check for reasonable data ranges (safety bounds)
-        yaw_rates = np.array(md.orientationRate.z)
-        velocities = np.array(md.velocity.x)
-        
-        # Safety check: detect invalid sensor readings
-        if np.any(np.abs(yaw_rates) > 10.0):  # Extremely high yaw rate
-            cloudlog.warning("VTSC extreme yaw rate in vision data, possible sensor error")
-            return False
-        
-        if np.any(velocities > 80.0):  # Unrealistic highway+ speeds
-            cloudlog.warning("VTSC unrealistic velocity in vision data, possible sensor error")
-            return False
-        
-        if np.any(np.isnan(yaw_rates)) or np.any(np.isnan(velocities)):
-            cloudlog.warning("VTSC NaN values in vision data, sensor malfunction")
-            return False
-        
-        return True
-    
-    def _validate_curvature(self, curvature: float) -> float:
-        """Validate and sanitize curvature value for safety"""
-        # Safety check: handle invalid mathematical results
-        if math.isnan(curvature) or math.isinf(curvature):
-            cloudlog.warning("VTSC invalid curvature calculation (NaN/infinite), using zero")
-            return 0.0
-        
-        # Safety check: extremely high curvature may indicate error
-        if curvature > 0.5:  # Very sharp curve threshold
-            cloudlog.warning(f"VTSC extremely high curvature {curvature:.4f}, capping for safety")
-            return 0.5  # Cap at maximum reasonable curvature
-        
-        return abs(curvature)  # Ensure positive value
-    
-    def calculate_safe_speed(self, curvature: float) -> float:
-        """Calculate safe speed for curvature using simple physics: v = sqrt(a_lat / curvature)"""
-        if curvature <= self.CURVE_THRESHOLD:
-            return 0.0  # No speed limit needed
-        
-        # Ensure curvature is positive for safe math operations
-        if curvature <= 0:
-            return 0.0  # Invalid curvature, no speed limit
+        # Priority 1: Lane lines (more stable than driving path)
+        if model_data is not None and len(model_data.laneLines) == 4 and len(model_data.laneLines[0].t) == TRAJECTORY_SIZE:
+            path_poly = self._extract_lane_based_polynomial(model_data)
             
-        # Simple physics: v = sqrt(lateral_acceleration / curvature)
+        # Priority 2: Lateral planner driving path
+        if path_poly is None and lat_planner_data is not None and len(lat_planner_data.psis) == CONTROL_N \
+           and lat_planner_data.dPathPoints[0] > 0:
+            yData = list(lat_planner_data.dPathPoints)
+            path_poly = np.polyfit(lat_planner_data.psis, yData[0:CONTROL_N], 3)
+            
+        # Priority 3: Straight line fallback
+        if path_poly is None:
+            path_poly = np.array([0., 0., 0., 0.])
+            
+        return path_poly
+
+    def _extract_lane_based_polynomial(self, model_data):
+        """Extract polynomial from lane lines with quality filtering"""
         try:
-            safe_speed = math.sqrt(self.TARGET_LAT_A / curvature)
-        except (ValueError, OverflowError):
-            return self.MIN_SPEED  # Safe fallback
-        
-        # Safety: never go below minimum speed
-        return max(safe_speed, self.MIN_SPEED)
-    
-    def update_state_machine(self, v_ego: float, speed_target: float):
-        """Update VTSC state machine"""
-        if not self.enabled or not self.dcp_dependency_met or v_ego < 3.0:
-            if self.state != VTSCState.DISABLED:
-                cloudlog.debug(f"VTSC disabling: enabled={self.enabled}, dcp_ok={self.dcp_dependency_met}, v_ego={v_ego}")
+            ll_x = model_data.laneLines[1].x  # left and right x coordinates are the same
+            lll_y = np.array(model_data.laneLines[1].y)  # left lane line y
+            rll_y = np.array(model_data.laneLines[2].y)  # right lane line y
+            l_prob = model_data.laneLineProbs[1]
+            r_prob = model_data.laneLineProbs[2]
+            lll_std = model_data.laneLineStds[1]
+            rll_std = model_data.laneLineStds[2]
+            
+            # Apply quality filters
+            width_pts = rll_y - lll_y
+            
+            # Reduce reliance on lanes that are too far apart
+            prob_mods = []
+            for t_check in [0.0, 1.5, 3.0]:
+                width_at_t = np.interp(t_check * (self._v_ego + 7), ll_x, width_pts)
+                prob_mods.append(np.interp(width_at_t, [4.0, 5.0], [1.0, 0.0]))
+            mod = min(prob_mods)
+            l_prob *= mod
+            r_prob *= mod
+            
+            # Reduce reliance on uncertain lane lines
+            l_std_mod = np.interp(lll_std, [0.15, 0.3], [1.0, 0.0])
+            r_std_mod = np.interp(rll_std, [0.15, 0.3], [1.0, 0.0])
+            l_prob *= l_std_mod
+            r_prob *= r_std_mod
+            
+            # Use lane-based path only if both lanes have sufficient probability
+            if l_prob > NP_VTSC_MIN_LANE_PROB and r_prob > NP_VTSC_MIN_LANE_PROB:
+                c_y = width_pts / 2 + lll_y  # Center lane calculation
+                return np.polyfit(ll_x, c_y, 3)
+                
+        except Exception as e:
+            _debug_log(f"Lane polynomial extraction error: {e}")
+            
+        return None
+
+    def _state_transition(self):
+        """Handle state machine transitions with safety checks"""
+        if not self.is_enabled():
+            return
+            
+        # Global disable conditions
+        if not self._op_enabled or not self.enabled or self._gas_pressed:
             self.state = VTSCState.DISABLED
             return
-        
-        # Calculate target speed for current curvature
-        target_speed = self.calculate_safe_speed(self.current_curvature)
-        
-        # State transitions based on curvature and distance
-        if self.current_curvature < self.CURVE_THRESHOLD:
-            # No significant curve detected
-            if self.state in (VTSCState.TURNING, VTSCState.LEAVING):
-                self.state = VTSCState.LEAVING
-            else:
-                self.state = VTSCState.MONITORING
-                
-        elif target_speed > 0:
-            # Significant curvature detected
-            if self.state == VTSCState.MONITORING:
-                if 0 < self.distance_to_curve < self.MAX_LOOKAHEAD:
-                    self.state = VTSCState.ENTERING
-                    cloudlog.info(f"VTSC entering curve: curvature={self.current_curvature:.4f}, distance={self.distance_to_curve:.1f}m")
-                    
-            elif self.state == VTSCState.ENTERING:
-                if self.distance_to_curve < 15:  # Close to curve
-                    self.state = VTSCState.TURNING
-                    self.curve_count += 1
-                    cloudlog.info(f"VTSC in curve #{self.curve_count}: target_speed={target_speed:.1f} m/s")
-                    
-            elif self.state == VTSCState.TURNING:
-                if self.current_curvature < self.CURVE_THRESHOLD * self.EXIT_THRESHOLD:
-                    self.state = VTSCState.LEAVING
-                    cloudlog.info("VTSC leaving curve")
-                    
-            elif self.state == VTSCState.LEAVING:
-                if self.current_curvature < self.CURVE_THRESHOLD * 0.3:
-                    self.state = VTSCState.MONITORING
-    
-    def calculate_speed_modifier(self, v_ego: float, speed_target: float) -> float:
-        """Calculate clean curvature-following speed modifier"""
-        # States that don't modify speed
-        if self.state in (VTSCState.DISABLED, VTSCState.MONITORING):
-            return 1.0
             
-        # Get curvature-based safe speed
-        safe_speed = self.calculate_safe_speed(self.current_curvature)
-        if safe_speed <= 0:
-            return 1.0
-            
-        # ENTERING: Progressive deceleration to safe speed
-        if self.state == VTSCState.ENTERING:
-            if self.distance_to_curve > 5.0:  # Far enough to decelerate progressively
-                # Physics: v^2 = v0^2 + 2*a*d
-                current_speed = speed_target
-                if current_speed > safe_speed:
-                    required_decel = (current_speed**2 - safe_speed**2) / (2 * self.distance_to_curve)
-                    actual_decel = min(required_decel, self.max_deceleration_rate)
-                    sqrt_arg = max(safe_speed**2 + 2 * actual_decel * self.distance_to_curve, safe_speed**2)
-                    progressive_target = math.sqrt(max(0.0, sqrt_arg))  # Ensure non-negative
-                    target_modifier = progressive_target / speed_target
-                else:
-                    target_modifier = 1.0  # Already at safe speed
-            else:
-                # Close to curve - use safe speed directly
-                target_modifier = safe_speed / speed_target
-                
-        # TURNING: Direct curvature-following
+        # State-specific transition logic
+        if self.state == VTSCState.DISABLED:
+            self._handle_disabled_state()
+        elif self.state == VTSCState.ENTERING:
+            self._handle_entering_state()  
         elif self.state == VTSCState.TURNING:
-            target_modifier = safe_speed / speed_target
-            self.speed_reduction_count += 1
-            
-        # LEAVING: Gradual recovery
+            self._handle_turning_state()
         elif self.state == VTSCState.LEAVING:
-            current_modifier = self.speed_limit_filter.x
-            target_modifier = min(1.0, current_modifier + 0.02)  # Gradual recovery
-            
-        else:
-            return 1.0
-            
-        # Safety: respect minimum speed
-        target_modifier = max(target_modifier, self.min_speed_modifier)
-        
-        # Smooth transitions
-        self.speed_limit_filter.update(target_modifier)
-        return self.speed_limit_filter.x
-    
-    def process(self, speed_target: float, driving_context: Dict[str, Any]) -> DCPFilterResult:
-        """
-        Process speed target through VTSC filter layer
-        
-        Args:
-            speed_target: Current target speed from DCP foundation
-            driving_context: Driving context with 'sm' (SubMaster), 'v_ego', etc.
-            
-        Returns:
-            DCPFilterResult with speed modification and status
-        """
-        # Error handling: check if controller is enabled
+            self._handle_leaving_state()
+
+    def _handle_disabled_state(self):
+        """Handle transitions from DISABLED state (SunnyPilot logic)"""
+        # Don't enter if speed too low
+        if self._v_ego <= NP_VTSC_MIN_V:
+            return
+        # Enter if predictions meet threshold  
+        elif self._max_pred_lat_acc >= NP_VTSC_ENTERING_PRED_LAT_ACC_TH:
+            self.state = VTSCState.ENTERING
+
+    def _handle_entering_state(self):
+        """Handle transitions from ENTERING state"""
+        # Transition to turning if experiencing sufficient lateral acceleration
+        if self._current_lat_acc >= NP_VTSC_TURNING_LAT_ACC_TH:
+            self.state = VTSCState.TURNING
+        # Abort if predicted lateral acceleration drops significantly  
+        elif self._max_pred_lat_acc < NP_VTSC_ABORT_ENTERING_PRED_LAT_ACC_TH:
+            self.state = VTSCState.DISABLED
+
+    def _handle_turning_state(self):
+        """Handle transitions from TURNING state"""
+        # Transition to leaving when lateral acceleration decreases
+        if self._current_lat_acc <= NP_VTSC_LEAVING_LAT_ACC_TH:
+            self.state = VTSCState.LEAVING
+
+    def _handle_leaving_state(self):
+        """Handle transitions from LEAVING state"""
+        # Return to turning if lateral acceleration increases again
+        if self._current_lat_acc >= NP_VTSC_TURNING_LAT_ACC_TH:
+            self.state = VTSCState.TURNING
+        # Finish turn cycle when lateral acceleration drops sufficiently
+        elif self._current_lat_acc < NP_VTSC_FINISH_LAT_ACC_TH:
+            self.state = VTSCState.DISABLED
+
+    def _update_solution(self):
+        """Calculate target acceleration based on current state"""
         if not self.is_enabled():
-            return DCPFilterResult(
-                speed_modifier=1.0,
-                active=False,
-                reason="VTSC controller disabled",
-                priority=100
-            )
+            self._a_target = self._a_ego
+            return
             
         try:
-            # Read parameters and check dependencies
-            self.read_params()
-            
-            # Get driving context
-            v_ego = driving_context.get('v_ego', 0.0)
-        
-            # Early exit if DCP dependency not met
-            if not self.dcp_dependency_met:
-                # DEBUG LOGGING
-                cloudlog.debug("VTSC: DCP dependency not met - VTSC inactive")
-                return DCPFilterResult(
-                    speed_modifier=1.0, 
-                    active=False,
-                    reason="DCP foundation disabled",
-                    priority=100
-                )
-            
-            # Early exit if disabled or insufficient speed
-            if not self.enabled or v_ego < 3.0:
-                self.state = VTSCState.DISABLED
-                # DEBUG LOGGING
-                cloudlog.debug(f"VTSC disabled or low speed - enabled: {self.enabled}, v_ego: {v_ego:.1f}")
-                return DCPFilterResult(
-                    speed_modifier=1.0,
-                    active=False,
-                    reason="VTSC disabled or low speed",
-                    priority=100
-                )
-            
-            # Calculate curvature from vision
-            vision_ok = self.calculate_curvature_from_vision(driving_context)
-            if not vision_ok:
-                return DCPFilterResult(
-                    speed_modifier=1.0,
-                    active=False,
-                    reason="Vision model data unavailable",
-                    priority=100
-                )
-            
-            # Update state machine
-            self.update_state_machine(v_ego, speed_target)
-            
-            # Calculate VTSC speed modification
-            vtsc_speed_modifier = self.calculate_speed_modifier(v_ego, speed_target)
-            
-            # Apply GCF gradient compensation
-            gcf_speed_modifier = get_gradient_speed_factor(driving_context, self.params, self.gcf_enabled)
-            final_speed_modifier = min(vtsc_speed_modifier, gcf_speed_modifier)  # Most restrictive wins
-            
-            # Determine if actively controlling
-            is_active = self.state in (VTSCState.ENTERING, VTSCState.TURNING) and vtsc_speed_modifier < 0.98
-            
-            # Generate status reason
-            if is_active:
-                reason = f"Curve control: {self.state.name}, curvature={self.current_curvature:.4f}"
-                if self.distance_to_curve > 0:
-                    reason += f", dist={self.distance_to_curve:.1f}m"
+            if self.state == VTSCState.DISABLED:
+                a_target = self._a_ego
+                
+            elif self.state == VTSCState.ENTERING:
+                # Smooth deceleration based on predicted lateral acceleration
+                a_target = np.interp(self._max_pred_lat_acc, 
+                                   NP_VTSC_ENTERING_SMOOTH_DECEL_BP, 
+                                   NP_VTSC_ENTERING_SMOOTH_DECEL_V)
+                                   
+                # Handle overshoot scenario with calculated deceleration
+                if self._lat_acc_overshoot_ahead:
+                    a_target = min(
+                        (self._v_overshoot ** 2 - self._v_ego ** 2) / (2 * self._v_overshoot_distance),
+                        a_target
+                    )
+                _debug_log(f'Entering: Overshoot={self._lat_acc_overshoot_ahead}, a_target={a_target:.2f}')
+                
+            elif self.state == VTSCState.TURNING:
+                # Comfortable acceleration based on current lateral acceleration
+                a_target = np.interp(self._current_lat_acc,
+                                   NP_VTSC_TURNING_ACC_BP,
+                                   NP_VTSC_TURNING_ACC_V)
+                                   
+            elif self.state == VTSCState.LEAVING:
+                # Fixed comfortable acceleration for speed recovery
+                a_target = NP_VTSC_LEAVING_ACC
+                
             else:
-                reason = f"Monitoring: {self.state.name}"
-        
-            return DCPFilterResult(
-                speed_modifier=final_speed_modifier,
-                active=is_active,
-                reason=reason,
-                priority=100
-            )
+                a_target = self._a_ego
+                
+            self._a_target = a_target
             
         except Exception as e:
-            cloudlog.error(f"VTSC Controller error: {e}")
-            return DCPFilterResult(
-                speed_modifier=1.0,
-                active=False,
-                reason="VTSC error - fallback to no control",
-                priority=100
-            )
-    
-    def get_status(self) -> Dict[str, Any]:
-        """Get VTSC status for telemetry and debugging"""
+            cloudlog.error(f"NP V-TSC solution update error: {e}")
+            self._a_target = self._a_ego
+
+    # ========================================================================
+    # MAIN UPDATE INTERFACE
+    # ========================================================================
+
+    def update(self, sm, enabled, v_ego, a_ego, v_cruise_setpoint):
+        """Main update function called from longitudinal planner"""
+        if not self.is_enabled():
+            self.state = VTSCState.DISABLED
+            return
+            
+        try:
+            # Update vehicle state
+            self._op_enabled = enabled
+            self._gas_pressed = sm['carState'].gasPressed
+            self._v_ego = v_ego
+            self._a_ego = a_ego
+            self._v_cruise_setpoint = v_cruise_setpoint
+            
+            # Update parameters and perform calculations
+            self._update_params()
+            self._update_calculations(sm)
+            self._state_transition()
+            self._update_solution()
+            
+        except Exception as e:
+            cloudlog.error(f"NP V-TSC update error: {e}")
+            self.state = VTSCState.DISABLED
+
+    # ========================================================================
+    # STANDARDIZED INTERFACE
+    # ========================================================================
+
+    def get_debug_info(self):
+        """Standardized debug information following NagasPilot patterns"""
         return {
-            'enabled': self.enabled,
-            'dcp_dependency_met': self.dcp_dependency_met,
-            'state': self.state.name if hasattr(self.state, 'name') else str(self.state),
-            'current_curvature': round(self.current_curvature, 6),
-            'max_predicted_curvature': round(self.max_predicted_curvature, 6),
-            'distance_to_curve': round(self.distance_to_curve, 1),
-            'curve_count': self.curve_count,
-            'speed_reduction_count': self.speed_reduction_count,
-            'target_lat_accel': self.TARGET_LAT_A,
-            'min_speed': self.MIN_SPEED,
-            'curve_threshold': self.CURVE_THRESHOLD
+            "enabled": self.is_enabled(),
+            "active": self.is_active,
+            "state": _description_for_state(self.state),
+            "current_lat_acc": self._current_lat_acc,
+            "max_pred_lat_acc": self._max_pred_lat_acc,
+            "v_ego": self._v_ego,
+            "v_turn": self.v_turn,
+            "a_target": self._a_target,
+            "overshoot_ahead": self._lat_acc_overshoot_ahead
         }
-    
-    def is_actively_controlling(self) -> bool:
-        """Check if VTSC is actively controlling speed"""
-        return (self.state in (VTSCState.ENTERING, VTSCState.TURNING) and 
-                self.enabled and self.dcp_dependency_met)

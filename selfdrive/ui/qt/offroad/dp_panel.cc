@@ -20,8 +20,8 @@ void DPPanel::add_lateral_toggles() {
       tr("Block lane change assist when the system detects the road edge.\nNOTE: This will show 'Car Detected in Blindspot' warning.")
     },
   };
-  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("Lane Change Assist (LCA) Speed:"), 
-    tr("Off = Disable Lane Change Assist"), 
+  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("Lane Change Assist (LCA) Speed:"),
+    tr("Off = Disable Lane Change Assist"),
     "", 0, 160, 5, tr(" km/h"), tr("Off"));
   lca_sec_toggle = new ParamDoubleSpinBoxControl("dp_lat_lca_auto_sec", QString::fromUtf8("　") + tr("Auto Lane Change Assist (LCA) after:"), tr("Off = Disable Auto Lane Change Assist."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
 
@@ -52,34 +52,22 @@ void DPPanel::add_lateral_toggles() {
   }
 }
 
-void DPPanel::add_longitudinal_toggles() {
+void DPPanel::add_ui_toggles() {
   std::vector<std::tuple<QString, QString, QString>> toggle_defs{
     {
       "",
-      QString::fromUtf8("🐍 ") + tr("Longitudinal Ctrl"),
+      QString::fromUtf8("🐍 ") + tr("UI"),
       "",
     },
     {
-      "dp_lon_ext_radar",
-      tr("Use External Radar"),
-      tr("See https://github.com/eFiniLan/openpilot-ext-radar-addon for more information."),
-    },
-    {
-      "dp_lon_acm",
-      QString::fromUtf8("🚧 ") + tr("Enable Adaptive Coasting Mode (ACM)"),
-      tr("Adaptive Coasting Mode (ACM) reduces braking to allow smoother coasting when appropriate.\nDOES NOT WORK with Experimental Mode enabled."),
-    },
-    {
-      "dp_lon_acm_downhill",
-      QString::fromUtf8("　") + tr("Downhill Only"),
-      tr("Limited to downhill driving."),
-    },
-    {
-      "dp_lon_aem",
-      QString::fromUtf8("🚧 ") + tr("Adaptive Experimental Mode (AEM)"),
-      tr("Adaptive mode switcher between ACC and Blended based on driving context."),
+      "dp_ui_rainbow",
+      tr("Rainbow Driving Path"),
+      tr("Why not?"),
     },
   };
+  auto hide_hud = new ParamSpinBoxControl("dp_ui_hide_hud_speed_kph", tr("Hide HUD When Moves above:"),
+    tr("To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.\nOff = Stock Behavior"),
+    "", 0, 120, 5, tr(" km/h"), tr("Off"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -88,15 +76,8 @@ void DPPanel::add_longitudinal_toggles() {
     if (param.isEmpty()) {
       label = new LabelControl(title, "");
       addItem(label);
-      continue;
-    }
-    if (param == "dp_lon_ext_radar" && !vehicle_has_radar_unavailable) {
-      continue;
-    }
-    if ((param == "dp_lon_acm" || param == "dp_lon_acm_downhill") && !vehicle_has_long_ctrl) {
-      continue;
-    }
-    if (param == "dp_lon_aem" && !vehicle_has_long_ctrl) {
+      addItem(hide_hud);
+      has_toggle = true;
       continue;
     }
 
@@ -114,27 +95,29 @@ void DPPanel::add_longitudinal_toggles() {
   }
 }
 
-void DPPanel::add_ui_toggles() {
+void DPPanel::add_longitudinal_toggles() {
   std::vector<std::tuple<QString, QString, QString>> toggle_defs{
     {
       "",
-      QString::fromUtf8("🐍 ") + tr("UI"),
+      QString::fromUtf8("🐍 ") + tr("Longitudinal Ctrl"),
       "",
     },
     {
-      "dp_ui_radar_tracks",
-      tr("Display Radar Tracks"),
-      "",
+      "dp_lon_vtsc",
+      tr("Vision Turn Speed Control (V-TSC)"),
+      tr("Adjust speed based on vision curvature."),
     },
     {
-      "dp_ui_rainbow",
-      tr("Rainbow Driving Path"),
-      tr("Why not?"),
+      "dp_lon_mtsc",
+      tr("Map Turn Speed Control (M-TSC)"),
+      tr("Adjust speed based on map curvature."),
+    },
+    {
+      "dp_lon_aem",
+      tr("Adaptive Experimental Mode (AEM)"),
+      tr("Adaptive mode switcher between ACC and Blended based on driving context."),
     },
   };
-  auto hide_hud = new ParamSpinBoxControl("dp_ui_hide_hud_speed_kph", tr("Hide HUD When Moves above:"), 
-    tr("To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.\nOff = Stock Behavior"), 
-    "", 0, 120, 5, tr(" km/h"), tr("Off"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -143,14 +126,8 @@ void DPPanel::add_ui_toggles() {
     if (param.isEmpty()) {
       label = new LabelControl(title, "");
       addItem(label);
-      addItem(hide_hud);
-      has_toggle = true;
       continue;
     }
-    if (param == "dp_ui_radar_tracks" && !vehicle_has_long_ctrl) {
-      continue;
-    }
-
     has_toggle = true;
     auto toggle = new ParamControl(param, title, desc, "", this);
     bool locked = params.getBool((param + "Lock").toStdString());
@@ -235,7 +212,6 @@ DPPanel::DPPanel(SettingsWindow *parent) : ListWidget(parent) {
     cereal::CarParams::Reader CP = cmsg.getRoot<cereal::CarParams>();
     brand = QString::fromStdString(CP.getBrand());
     vehicle_has_long_ctrl = hasLongitudinalControl(CP);
-    vehicle_has_radar_unavailable = CP.getRadarUnavailable();
   }
 
   add_lateral_toggles();
@@ -264,8 +240,7 @@ void DPPanel::showEvent(QShowEvent *event) {
 void DPPanel::updateStates() {
   // do fs_watch here
   fs_watch->addParam("dp_lat_lca_speed");
-  fs_watch->addParam("dp_lon_ext_radar");
-  fs_watch->addParam("dp_lon_acm");
+  // no ACM toggle
 
   if (!isVisible()) {
     return;
@@ -273,9 +248,7 @@ void DPPanel::updateStates() {
 
   // do state change logic here
   lca_sec_toggle->setVisible(std::atoi(params.get("dp_lat_lca_speed").c_str()) > 0);
-  if (vehicle_has_long_ctrl) {
-    toggles["dp_lon_acm_downhill"]->setVisible(params.getBool("dp_lon_acm"));
-  }
+  // no dynamic longitudinal toggle visibility required
 
 }
 

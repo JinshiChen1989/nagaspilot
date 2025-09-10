@@ -21,8 +21,8 @@ namespace {
     const QString SELECTOR_BTN_STYLE = "background-color: #00309a; font-size: 48px;";
     const QString MODEL_LIST_STYLE = "font-size: 64px;";
     const QString SCROLLBAR_STYLE = "width: 96px;";
-    const QString GROUP_HEADER_BG_COLOR = "#f0f0f0";
-    const QString GROUP_HEADER_TEXT_COLOR = "#86FF4E"; // Green
+    const QString GROUP_HEADER_BG_COLOR = "#f0f0f0"; // Gray background
+    const QString GROUP_HEADER_TEXT_COLOR = "#000000"; // Black
 
     // Role for storing the actual model name without indentation
     const int ModelNameRole = Qt::UserRole;

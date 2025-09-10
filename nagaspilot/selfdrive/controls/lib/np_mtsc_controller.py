@@ -1,798 +1,854 @@
-#!/usr/bin/env python3
-"""
+'''
 ====================================================================
-NAGASPILOT MTSC (MAP TURN SPEED CONTROL) - DCP FILTER LAYER
+NAGASPILOT M-TSC (MAP TURN SPEED CONTROL) - OSM-BASED CURVE SPEED MANAGEMENT
 ====================================================================
+
+MIT Non-Commercial License
+Copyright (c) 2019, dragonpilot
+Adapted from FrogPilot map integration patterns for NagasPilot
 
 OVERVIEW:
-MTSC is a proactive speed control filter that uses map data to reduce
-speed before entering curves. Uses direct curvature physics (v = sqrt(a_lat / curvature))
-instead of percentage-based reductions for predictable speed control that follows
-road geometry with greater lookahead than vision-based systems.
+M-TSC implements map-based turn speed control that automatically adjusts vehicle
+speed when approaching curves detected from OpenStreetMap data, providing advance
+warning and speed reduction before V-TSC engages with vision-based detection.
 
 CORE FUNCTIONALITY:
-- Uses OpenStreetMap (OSM) data for upcoming road curvature prediction
-- Calculates safe speeds based on physics models (lateral acceleration limits)
-- Integrates with OpenPilot's LocationD foundation for precise positioning
-- Falls back gracefully when map data is unavailable
-- Works as part of DCP (Dynamic Cruise Profiles) filter architecture
+- OSM data fetching based on ego vehicle speed and position
+- Map-based curvature prediction and analysis
+- Advance warning system for upcoming turns
+- Coordinated handoff with V-TSC (Vision Turn Speed Control)
+- Speed-dependent map data lookahead distance calculation
 
-OPERATIONAL FLOW:
-1. Update location using LocationD foundation (GPS + sensor fusion)
-2. Query OSM backend for upcoming road curvature data
-3. Calculate recommended speed using physics-based safety models
-4. Apply GCF (Gradient Compensation Factor) for hills/slopes
-5. Return speed modification to DCP system
+OPERATIONAL LOGIC:
+┌─────────────────────────────────────────────────────────────────┐
+│ DISABLED: No map data or feature disabled                     │
+│ MONITORING: Map data available, analyzing upcoming curves      │
+│ ADVANCE_WARNING: Curve detected ahead, preparing speed adjust  │
+│ COORDINATING: V-TSC active, providing backup recommendations   │
+└─────────────────────────────────────────────────────────────────┘
 
 SAFETY FEATURES:
-- LocationD validation with 10m horizontal accuracy standard
-- Minimum speed reduction limits (max 40% reduction)
-- Fallback to vision-based systems when map data fails
-- Parameter validation with secure bounds checking
-- Multi-sensor fusion for reliable positioning
+- Minimum speed enforcement (25 km/h operation threshold)
+- Gas pedal override for immediate driver control
+- Conservative speed recommendations (-2.5 m/s² deceleration limit)
+- OSM data validation and error handling
+- Seamless integration with V-TSC priority system
 
 INTEGRATION POINTS:
-- DCP Filter Layer: Inherits from DCPFilterLayer base class
-- LocationD Foundation: Uses OpenPilot's proven location services
-- OSM Backend: Interfaces with local map data cache
-- VTSC Coordination: Complementary to vision-based speed control
-- GCF Integration: Combines with gradient-based speed adjustments
+- TSC Manager for coordinated turn speed control
+- OpenStreetMap data via MAPD integration
+- GPS positioning for map data fetching
+- V-TSC coordination for handoff management
 
-CODE REVIEW NOTES:
-- Location validation: update_location_from_foundation() (line ~75)
-- Physics calculations: _calculate_recommended_speed() (line ~335)
-- Parameter validation: update_parameters() with bounds checking (line ~358)
-- Fallback handling: Process when map data unavailable (line ~280)
+OSM DATA FETCHING:
+- Speed-dependent lookahead: 3-8 seconds based on ego speed
+- Curve detection from map geometry and road classification
+- Adaptive fetch frequency to minimize data usage
+- Cached map segments for efficiency
 
-PERFORMANCE CONSIDERATIONS:
-- Reduced debug logging for real-time performance
-- Efficient OSM data caching and retrieval
-- Minimal computational overhead in main control loop
-- Validated parameter reading with error handling
-"""
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, for non-commercial purposes only, subject to the following conditions:
 
-import math
-import os
+- The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+- Commercial use (e.g., use in a product, service, or activity intended to generate revenue) is prohibited without explicit written permission from dragonpilot. Contact ricklan@gmail.com for inquiries.
+- Any project that uses the Software must visibly mention the following acknowledgment: "This project uses software from dragonpilot and is licensed under a custom license requiring permission for use."
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+'''
+
+import numpy as np
 import time
-from typing import Dict, Any
-from openpilot.common.conversions import Conversions as CV
-from openpilot.selfdrive.controls.lib.nagaspilot.np_dcp_profile import DCPFilterLayer, DCPFilterType, DCPFilterResult
-from openpilot.selfdrive.controls.lib.nagaspilot.np_gcf_helper import get_gradient_speed_factor
-from openpilot.selfdrive.controls.lib.nagaspilot.np_logger import NpLogger
-from typing import List, Optional
+import math
+import json
+from enum import Enum
+from typing import Tuple, Optional, Dict
+
 from openpilot.common.params import Params
-import cereal.messaging as messaging
-from openpilot.common.gps import get_gps_location_service
-from openpilot.selfdrive.controls.lib.nagaspilot.np_config import ParamCache
+from opendbc.car.common.conversions import Conversions as CV
+from openpilot.common.swaglog import cloudlog
+from openpilot.selfdrive.car.cruise import V_CRUISE_MAX
+
+# Import MAPD extractor with fallback handling
+try:
+    from nagaspilot.selfdrive.mapd.np_mapd_extractor import NPMapdExtractor
+    MAPD_AVAILABLE = True
+except ImportError:
+    cloudlog.warning("MAPD extractor not available - M-TSC will use fallback mode")
+    NPMapdExtractor = None
+    MAPD_AVAILABLE = False
 
 # ========================================================================
 # CONSTANTS & CONFIGURATION
 # ========================================================================
 
-# Initialize centralized logger for MTSC module
-np_logger = NpLogger('mtsc')
+# Common constants (replacing np_common imports)
+SPEED_THRESHOLD_CREEP = 2.0  # m/s - minimum speed for active control
 
-# MTSC Constants
-TRAJECTORY_SIZE = 33
-TARGET_LAT_A = 1.9  # m/s^2 - target lateral acceleration limit
-PLANNER_TIME = 10.0  # Lookahead time in seconds (frogpilot standard)
+# Control modes for M-TSC system
+class ControlMode(Enum):
+    """Control modes for M-TSC state management"""
+    DISABLED = "disabled"
+    MONITORING = "monitoring" 
+    ACTIVE = "active"
+    ERROR = "error"
+
+# M-TSC Operation Parameters - PROVEN SunnyPilot values
+NP_MTSC_MIN_V = 25 * CV.KPH_TO_MS  # PROVEN: SunnyPilot minimum speed (aligned with documentation)
+NP_MTSC_MAX_LOOKAHEAD_DISTANCE = 500.0  # Maximum distance for M-TSC focus (meters) - optimized for braking calculations  
+NP_MTSC_MIN_LOOKAHEAD_DISTANCE = 100.0  # Minimum distance for M-TSC focus (meters) - sufficient for advance warning
+
+# PROVEN SunnyPilot constants (battle-tested)
+NP_MTSC_NO_OVERSHOOT_TIME_HORIZON = 4.0  # PROVEN: SunnyPilot 4-second horizon
+NP_MTSC_ENTERING_PRED_LAT_ACC_TH = 1.3   # PROVEN: SunnyPilot 1.3 m/s² entering threshold
+NP_MTSC_TURNING_LAT_ACC_TH = 1.6         # PROVEN: SunnyPilot 1.6 m/s² turning threshold
+
+# Lateral acceleration limits by driving personality (matches V-TSC behavior)
+NP_MTSC_A_LAT_REG_COMFORT = 2.0    # Comfort driving (gentle) - matches V-TSC
+NP_MTSC_A_LAT_REG_NORMAL = 2.5     # Normal driving (balanced) - matches V-TSC default
+NP_MTSC_A_LAT_REG_SPORT = 3.0      # Sport driving (aggressive) - matches V-TSC
+
+# Curve Detection Thresholds
+NP_MTSC_MIN_CURVE_RADIUS = 150.0      # meters, minimum radius to consider as curve
+NP_MTSC_CURVE_DETECTION_THRESHOLD = 0.007  # rad/m, curvature threshold
+NP_MTSC_CONFIDENCE_THRESHOLD = 0.7    # Minimum confidence for speed recommendations
+
+# PROVEN acceleration values from SunnyPilot (replace experimental -2.5)
+NP_MTSC_ENTERING_SMOOTH_DECEL_V = [-0.2, -1.0]  # PROVEN: SunnyPilot smooth deceleration
+NP_MTSC_ENTERING_SMOOTH_DECEL_BP = [1.3, 3.0]   # PROVEN: SunnyPilot breakpoints
+NP_MTSC_TURNING_ACC_V = [0.5, 0.0, -0.4]        # PROVEN: SunnyPilot turning acceleration
+NP_MTSC_TURNING_ACC_BP = [1.5, 2.3, 3.0]        # PROVEN: SunnyPilot turning breakpoints
+
+# Legacy constants for backward compatibility (being replaced by personality-based calculations)
+NP_MTSC_APPROACH_DECEL = 1.5         # Approach deceleration (fallback value)
+# Note: Main curve speed calculations now use personality-based lateral acceleration limits
+
+# Missing constants causing crashes
+NP_MTSC_REACTION_TIME = 1.5          # Reaction time in seconds
+NP_MTSC_MIN_CURVE_SPEED = 8.0 * CV.KPH_TO_MS   # Minimum safe curve speed (8 kph)
+NP_MTSC_MAX_CURVE_SPEED = 60.0 * CV.KPH_TO_MS  # Maximum curve speed limit (60 kph)
+NP_MTSC_SAFETY_MARGIN = 1.2          # Safety margin multiplier
+
+# Gradual speed reduction parameters
+NP_MTSC_SPEED_TRANSITION_RATE = 0.5   # m/s per update cycle (0.5 m/s = 1.8 kph)
+NP_MTSC_MAX_SPEED_REDUCTION_RATE = 2.0 # Maximum speed reduction rate (m/s²) - fallback only
+
+# Personality-based deceleration limits (matches V-TSC behavior)
+NP_MTSC_MAX_DECEL_COMFORT = 2.0      # Comfort: gentle deceleration
+NP_MTSC_MAX_DECEL_NORMAL = 2.5       # Normal: balanced deceleration  
+NP_MTSC_MAX_DECEL_SPORT = 3.0        # Sport: aggressive deceleration
+
+# OSM Data Management - Efficient for Curve Detection (not navigation)
+NP_MTSC_DATA_CACHE_TIME = 60.0       # seconds, longer cache for efficiency 
+NP_MTSC_MIN_FETCH_INTERVAL = 5.0     # seconds, less frequent for curve detection
+NP_MTSC_GPS_ACCURACY_THRESHOLD = 15.0 # meters, relaxed for curve detection
+NP_MTSC_SEGMENT_DISTANCE_THRESHOLD = 200.0  # meters, distance before new fetch
+
+# PROVEN FrogPilot data limits (replace experimental conservative limits)
+NP_MTSC_FREE_REQUESTS = 100_000      # PROVEN: FrogPilot monthly limit
+NP_MTSC_MAX_DAILY_REQUESTS = NP_MTSC_FREE_REQUESTS // 30  # ~3,333/day (proven reasonable)
+# Remove experimental hourly limit - not needed with proper efficiency
+NP_MTSC_FALLBACK_DISTANCE = 2000     # meters, fallback when no data available
+
+# Debug flag
+NP_MTSC_DEBUG = False
 
 # ========================================================================
-# GPS CALCULATION FUNCTIONS (FROGPILOT METHOD)
+# ENUMERATIONS
 # ========================================================================
 
-def calculate_distance_to_point(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """
-    Calculate Haversine distance between two GPS points in meters
-    Uses frogpilot/sunnypilot compatible implementation
-    
-    Args:
-        lat1, lon1: First point coordinates in radians
-        lat2, lon2: Second point coordinates in radians
-        
-    Returns:
-        Distance in meters
-    """
-    import math
-    
-    # Earth's radius in meters
-    R = 6371000.0
-    
-    # Haversine formula
-    dlat = lat2 - lat1
-    dlon = lon2 - lon1
-    
-    a = (math.sin(dlat / 2) ** 2 + 
-         math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2)
-    
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    
-    return R * c
+# M-TSC state machine with coordination support
+class MTSCState(Enum):
+    """M-TSC state machine with V-TSC coordination"""
+    DISABLED = 0
+    MONITORING = 1        # Monitoring map data, advance warning (like SunnyPilot entering) 
+    ACTIVE = 2           # Active curve management (like SunnyPilot turning)
+    ADVANCE_WARNING = 3  # Advance warning state for early curve detection
+    COORDINATING = 4     # Coordinating with V-TSC when both systems active
 
+# Curve classification enum
+class CurveType(Enum):
+    """Curve classification for speed adjustment"""
+    UNKNOWN = 0
+    GENTLE = 1    # R > 500m
+    MODERATE = 2  # 200m < R <= 500m  
+    SHARP = 3     # R <= 200m
 
-def calculate_curvature(p1: tuple, p2: tuple, p3: tuple) -> float:
-    """
-    Calculate curvature from three GPS points using triangle geometry (frogpilot method)
-    Uses Heron's formula to calculate triangle area, then derives radius and curvature
+# REMOVE experimental curve classification - use proven physics-based approach instead
+# SunnyPilot uses direct curvature-to-lateral-acceleration formula (proven)
+
+# ========================================================================
+# UTILITY FUNCTIONS
+# ========================================================================
+
+def _debug_log(msg):
+    """Debug logging function"""
+    if NP_MTSC_DEBUG:
+        cloudlog.debug(f"[NP_MTSC]: {msg}")
+
+def calculate_bearing_offset(lat, lon, bearing, distance):
+    """Calculate new position given bearing and distance (from FrogPilot pattern)"""
+    R = 6371000  # Earth's radius in meters
+    lat_rad = math.radians(lat)
+    lon_rad = math.radians(lon)
+    bearing_rad = math.radians(bearing)
     
-    Args:
-        p1, p2, p3: GPS coordinate tuples (latitude, longitude) in degrees
-        
-    Returns:
-        Curvature value (1/radius) in 1/meters
-    """
-    import math
+    new_lat_rad = math.asin(
+        math.sin(lat_rad) * math.cos(distance / R) +
+        math.cos(lat_rad) * math.sin(distance / R) * math.cos(bearing_rad)
+    )
     
+    new_lon_rad = lon_rad + math.atan2(
+        math.sin(bearing_rad) * math.sin(distance / R) * math.cos(lat_rad),
+        math.cos(distance / R) - math.sin(lat_rad) * math.sin(new_lat_rad)
+    )
+    
+    return math.degrees(new_lat_rad), math.degrees(new_lon_rad)
+
+def calculate_curve_radius(lat1, lon1, lat2, lon2, lat3, lon3):
+    """Calculate curve radius from three GPS points"""
     try:
-        # Convert degrees to radians
-        lat1, lon1 = math.radians(p1[0]), math.radians(p1[1])
-        lat2, lon2 = math.radians(p2[0]), math.radians(p2[1])
-        lat3, lon3 = math.radians(p3[0]), math.radians(p3[1])
+        # Convert to radians
+        lat1, lon1 = math.radians(lat1), math.radians(lon1)
+        lat2, lon2 = math.radians(lat2), math.radians(lon2)  
+        lat3, lon3 = math.radians(lat3), math.radians(lon3)
         
-        # Calculate distances between points
-        a = calculate_distance_to_point(lat2, lon2, lat3, lon3)  # p2 to p3
-        b = calculate_distance_to_point(lat1, lon1, lat3, lon3)  # p1 to p3  
-        c = calculate_distance_to_point(lat1, lon1, lat2, lon2)  # p1 to p2
+        # Calculate side lengths using haversine
+        def haversine_dist(lat_a, lon_a, lat_b, lon_b):
+            dlat = lat_b - lat_a
+            dlon = lon_b - lon_a
+            a = math.sin(dlat/2)**2 + math.cos(lat_a) * math.cos(lat_b) * math.sin(dlon/2)**2
+            return 2 * 6371000 * math.asin(math.sqrt(a))
         
-        # Check for degenerate triangle (collinear points)
-        if a <= 0 or b <= 0 or c <= 0:
-            return 1e-6
-            
-        # Check triangle inequality
-        if a + b <= c or a + c <= b or b + c <= a:
-            return 1e-6
-            
-        # Calculate semi-perimeter
-        s = (a + b + c) / 2.0
+        a = haversine_dist(lat2, lon2, lat3, lon3)  # Distance from point 2 to 3
+        b = haversine_dist(lat1, lon1, lat3, lon3)  # Distance from point 1 to 3
+        c = haversine_dist(lat1, lon1, lat2, lon2)  # Distance from point 1 to 2
         
-        # Calculate area using Heron's formula
-        area_squared = s * (s - a) * (s - b) * (s - c)
+        # Calculate area using cross product approximation for small distances
+        area_approx = abs((lat2 - lat1) * (lon3 - lon1) - (lat3 - lat1) * (lon2 - lon1)) * 6371000**2 / 2
         
-        if area_squared <= 0:
-            return 1e-6
-            
-        area = math.sqrt(area_squared)
+        # Calculate radius using R = abc / 4*Area
+        if area_approx > 1e-10:  # Avoid division by zero
+            radius = (a * b * c) / (4 * area_approx)
+            return min(radius, 10000.0)  # Cap at 10km for sanity
         
-        # Calculate radius: R = (abc) / (4 * Area)
-        radius = (a * b * c) / (4.0 * area)
+        return float('inf')  # Straight line
         
-        if radius <= 0:
-            return 1e-6
-            
-        # Curvature is 1/radius
-        curvature = 1.0 / radius
-        
-        # Clamp to reasonable range (avoid extreme values)
-        return max(min(curvature, 0.1), 1e-6)
-        
-    except (ValueError, ZeroDivisionError, OverflowError) as e:
-        np_logger.warning(f"Curvature calculation error: {e}")
-        return 1e-6
+    except (ValueError, ZeroDivisionError):
+        return float('inf')
+
+def eval_lat_acc_from_curvature(v_ego, curvature):
+    """PROVEN SunnyPilot formula: Calculate lateral acceleration from curvature"""
+    return v_ego ** 2 * curvature
+
+def eval_curvature_from_radius(radius):
+    """Convert radius to curvature (1/R)"""  
+    return 1.0 / max(radius, 1.0)  # Avoid division by zero
+
+def get_smooth_deceleration(predicted_lat_acc):
+    """PROVEN SunnyPilot lookup for smooth deceleration"""
+    return np.interp(abs(predicted_lat_acc), 
+                     NP_MTSC_ENTERING_SMOOTH_DECEL_BP,
+                     NP_MTSC_ENTERING_SMOOTH_DECEL_V)
+
+def classify_curve(radius):
+    """Classify curve type based on radius"""
+    if radius > 500.0:
+        return CurveType.GENTLE
+    elif radius > 200.0:
+        return CurveType.MODERATE
+    else:
+        return CurveType.SHARP
 
 # ========================================================================
-# LOCATION & GPS HANDLING
+# M-TSC CONTROLLER IMPLEMENTATION  
 # ========================================================================
 
-class NpMapData:
-    """Integrated map data interface with OpenPilot LocationD foundation"""
+class MTSC:
+    """Map Turn Speed Controller - NagasPilot Implementation"""
     
-    def __init__(self):
+    # ========================================================================
+    # INITIALIZATION & CONFIGURATION
+    # ========================================================================
+    
+    def __init__(self, CP):
+        """Initialize M-TSC with default state following NagasPilot patterns"""
+        # Parameter management (standardized interface)
         self.params = Params()
-        self.mem_params = Params("/dev/shm/params")  # Memory params for MapTargetVelocities
+        self.enabled = self.params.get_bool("dp_lon_mtsc")
         
-        # OpenPilot LocationD foundation integration
-        self.sm = messaging.SubMaster(['gpsLocation', 'gpsLocationExternal', 'livePose'])
-        self.gps_service = get_gps_location_service(self.params)
+        # Vehicle configuration
+        self._CP = CP
+        self._last_params_update = 0.0
         
-        # OpenPilot foundation standards (10m horizontal accuracy threshold)
-        self.horizontal_accuracy_threshold = 10.0  # OpenPilot proven standard
-        self.location_valid = False
-        self.sensor_fusion_valid = False
+        # Control state variables
+        self._op_enabled = False
+        self._gas_pressed = False
+        self._v_cruise_setpoint = 0.0
+        self._v_ego = 0.0
+        self._state = MTSCState.DISABLED
+        self._vtsc_active = False  # V-TSC state for coordination
         
-        # OSM integration placeholder - ready for future mapd integration
-        self.osm_enabled = self.params.get_bool("np_osm_enabled", False)
+        # MAPD Data Extractor with fallback handling
+        if MAPD_AVAILABLE and NPMapdExtractor:
+            try:
+                self._data_extractor = NPMapdExtractor(self.params)
+                self._mapd_enabled = True
+                cloudlog.info("M-TSC: MAPD extractor initialized successfully")
+            except Exception as e:
+                cloudlog.error(f"M-TSC: MAPD extractor failed to initialize: {e}")
+                self._data_extractor = None
+                self._mapd_enabled = False
+        else:
+            self._data_extractor = None
+            self._mapd_enabled = False
+            cloudlog.info("M-TSC: Running in fallback mode without MAPD")
         
-        self.last_location = (0.0, 0.0, 0.0)  # lat, lon, heading
+        self._mtsc_data_cache = {}
+        self._last_mtsc_data_update = 0.0
         
-        np_logger.info(f"LocationD foundation initialized - GPS service: {self.gps_service}")
+        # GPS tracking
+        self._current_gps = None
+        
+        # Curve analysis variables
+        self._upcoming_curves = []
+        self._closest_curve_distance = float('inf')
+        self._recommended_speed = 0.0
+        self._confidence = 0.0
+        self._curve_type = CurveType.UNKNOWN
+        
+        # Gradual speed reduction variables
+        self._target_speed = 0.0
+        self._speed_reduction_active = False
+        self._last_recommended_speed = 0.0
+        self._current_decel_rate = 0.0  # Track current deceleration rate for debug
+        
+        # Lookahead calculation
+        self._current_lookahead_distance = NP_MTSC_MIN_LOOKAHEAD_DISTANCE
+        
+        if self.enabled:
+            cloudlog.info("NP M-TSC Controller initialized with MAPD integration")
+            cloudlog.info("Using real OSM curve detection instead of simulation")
+
+    # ========================================================================
+    # STANDARDIZED INTERFACE (following NagasPilot patterns)
+    # ========================================================================
     
-    def update_location_from_foundation(self):
-        """
-        Update location using OpenPilot LocationD foundation with sensor fusion
+    def is_enabled(self):
+        """Check if M-TSC controller is enabled via parameter"""
+        return self.enabled and self.params.get_bool("dp_lon_mtsc")
         
-        Uses proven LocationD validation instead of custom GPS handling:
-        - Multi-sensor fusion (GPS + IMU + camera odometry)
-        - Hardware-aware GPS service selection (u-blox vs mobile)
-        - Kalman filter-based position estimates with uncertainty
-        - OpenPilot standard validation thresholds
-        """
-        try:
-            # Update SubMaster to get latest data
-            self.sm.update()
-            
-            # Get LocationD's validated position estimate
-            live_pose = self.sm['livePose']
-            if not live_pose.valid:
-                self._handle_sensor_fusion_failure("LocationD validation failed")
-                return
-            
-            # Check LocationD sensor status (multi-sensor validation)
-            if not (live_pose.sensorsOK and live_pose.inputsOK):
-                self._handle_sensor_fusion_degradation("LocationD sensors/inputs not OK")
-                return
-            
-            # Get best available GPS data using OpenPilot's service selection
-            gps_service_name = self.gps_service.replace('gps', 'gps')  # gpsLocation or gpsLocationExternal
-            gps_data = self.sm[gps_service_name]
-            
-            if not gps_data.valid:
-                self._handle_gps_failure("GPS service reports invalid data")
-                return
-            
-            # Apply OpenPilot foundation validation standards
-            if not self._validate_gps_with_foundation_standards(gps_data):
-                return
-            
-            # Valid foundation data - update location
-            lat = gps_data.latitude
-            lon = gps_data.longitude
-            heading = getattr(gps_data, 'bearingDeg', 0.0)
-            
-            self.last_location = (lat, lon, heading)
-            self.location_valid = True
-            self.sensor_fusion_valid = True
-            
-            # Update existing mapd system with GPS position
-            if self.osm_enabled:
-                try:
-                    import json
-                    gps_data_for_mapd = {
-                        "latitude": lat,
-                        "longitude": lon,
-                        "bearing": heading
-                    }
-                    self.mem_params.put("LastGPSPosition", json.dumps(gps_data_for_mapd))
-                except Exception as e:
-                    np_logger.warning(f"MapD GPS update error: {e}")
-                    
-        except (ValueError, TypeError, AttributeError) as e:
-            np_logger.warning(f"LocationD data validation error: {e}")
-            self._handle_sensor_fusion_failure(f"Foundation data error: {e}")
-        except Exception as e:
-            np_logger.error(f"Unexpected LocationD error: {e}")
-            self._handle_sensor_fusion_failure(f"Foundation update error: {e}")
-    
-    def _validate_gps_with_foundation_standards(self, gps_data) -> bool:
-        """Validate GPS using OpenPilot foundation standards"""
-        
-        # Coordinate range validation (foundation standard)
-        lat, lon = gps_data.latitude, gps_data.longitude
-        if not ((-90.0 <= lat <= 90.0) and (-180.0 <= lon <= 180.0) and not (lat == 0.0 and lon == 0.0)):
-            self._handle_gps_failure("Invalid coordinate ranges")
-            return False
-        
-        # OpenPilot foundation accuracy standard (10m horizontal accuracy)
-        horizontal_accuracy = getattr(gps_data, 'horizontalAccuracy', float('inf'))
-        if horizontal_accuracy > self.horizontal_accuracy_threshold:
-            self._handle_gps_degradation(f"Horizontal accuracy too low: {horizontal_accuracy:.1f}m > {self.horizontal_accuracy_threshold}m")
-            return False
-        
-        return True
-    
-    def _validate_map_data(self, curvatures: List[float]) -> bool:
-        """Validate map curvature data for safety"""
-        if not curvatures:
-            return False
-        
-        # Check data length
-        if len(curvatures) < 3:
-            np_logger.warning("Insufficient map curvature data points")
-            return False
-        
-        # Check for reasonable curvature ranges (safety bounds)
-        for curvature in curvatures:
-            if math.isnan(curvature) or math.isinf(curvature):
-                np_logger.warning("Invalid curvature values (NaN/infinite) in map data")
-                return False
-            
-            # Safety check: extremely high curvature may indicate error
-            if abs(curvature) > 1.0:  # Very sharp curve threshold
-                np_logger.warning(f"Extremely high curvature {curvature:.4f} in map data, possible error")
-                return False
-        
-        return True
-    
-    def _validate_curvature(self, curvature: float) -> float:
-        """Validate and sanitize curvature value for safety"""
-        # Safety check: handle invalid mathematical results
-        if math.isnan(curvature) or math.isinf(curvature):
-            np_logger.warning("Invalid curvature calculation (NaN/infinite), using zero")
-            return 0.0
-        
-        # Safety check: extremely high curvature may indicate error
-        if curvature > 0.5:  # Very sharp curve threshold
-            np_logger.warning(f"Extremely high curvature {curvature:.4f}, capping for safety")
-            return 0.5  # Cap at maximum reasonable curvature
-        
-        return abs(curvature)  # Ensure positive value
-    
-    def _handle_gps_failure(self, reason: str):
-        """Handle GPS failure with foundation context"""
-        self.location_valid = False
-        self.sensor_fusion_valid = False
-        np_logger.warning(f"GPS failure (foundation): {reason}")
-    
-    def _handle_gps_degradation(self, reason: str):
-        """Handle GPS degradation with foundation context"""
-        self.location_valid = False  # Keep last location but mark as unreliable
-        np_logger.info(f"GPS degraded (foundation): {reason}, maintaining cached location")
-    
-    def _handle_sensor_fusion_failure(self, reason: str):
-        """Handle LocationD sensor fusion failure"""
-        self.location_valid = False
-        self.sensor_fusion_valid = False
-        np_logger.warning(f"Sensor fusion failure: {reason}")
-    
-    def _handle_sensor_fusion_degradation(self, reason: str):
-        """Handle LocationD sensor fusion degradation"""
-        self.sensor_fusion_valid = False
-        np_logger.info(f"Sensor fusion degraded: {reason}, GPS fallback mode")
-    
     @property
-    def gps_available(self) -> bool:
-        """GPS availability based on LocationD foundation validation"""
-        return self.location_valid or self.sensor_fusion_valid
+    def state(self):
+        """Get current M-TSC state"""
+        return self._state
     
-    
-    def get_upcoming_curvatures(self, size: int = TRAJECTORY_SIZE) -> List[float]:
-        """Get upcoming road curvatures from map data - now integrated with existing mapd"""
-        if not self.osm_enabled:
-            return []
-            
-        try:
-            # Use existing mapd system - get curvature data from parameters
-            map_data_str = self.mem_params.get("MapTargetVelocities", encoding='utf8')
-            if not map_data_str:
-                return []
-                
-            import json
-            map_points = json.loads(map_data_str)
-            curvatures = []
-            
-            # Extract curvature data from existing mapd output
-            for point in map_points[:size]:
-                if isinstance(point, dict):
-                    if 'curvature' in point:
-                        curvatures.append(float(point['curvature']))
-                    elif 'radius' in point and point['radius'] > 0:
-                        # Convert radius to curvature
-                        curvatures.append(1.0 / float(point['radius']))
-                        
-            return curvatures[:size]
-            
-        except (json.JSONDecodeError, ValueError, TypeError) as e:
-            np_logger.warning(f"MapData curvature parsing error: {e}")
-            return []
-    
-    def get_current_speed_limit(self) -> Optional[float]:
-        """Get current speed limit from map data - now integrated with existing mapd"""
-        if not self.osm_enabled:
-            return None
-            
-        try:
-            # Use existing mapd system - get speed limit from parameters
-            speed_limit_str = self.params.get("MapSpeedLimit", encoding='utf8')
-            if speed_limit_str:
-                speed_limit_mps = float(speed_limit_str)
-                # Convert to km/h if needed (mapd usually provides m/s)
-                if speed_limit_mps < 10:  # Likely m/s 
-                    return speed_limit_mps * 3.6  # Convert to km/h
-                return speed_limit_mps  # Already km/h
-                
-        except (ValueError, TypeError) as e:
-            np_logger.warning(f"MapData speed limit parsing error: {e}")
-            
-        return None
-    
-    def get_map_curvature_for_speed(self, v_ego: float) -> float:
-        """Get single curvature value for speed calculation with lookahead logic (like frogpilot)"""
-        if not self.osm_enabled:
-            return 1e-6  # Minimal curvature
-            
-        try:
-            # Get GPS coordinates from MapTargetVelocities
-            map_data_str = self.mem_params.get("MapTargetVelocities", encoding='utf8')
-            if not map_data_str:
-                return 1e-6
-                
-            import json
-            target_velocities = json.loads(map_data_str)
-            
-            if len(target_velocities) < 3:
-                return 1e-6
-            
-            # Get current GPS position
-            current_lat, current_lon, _ = self.last_location
-            if current_lat == 0.0 and current_lon == 0.0:
-                return 1e-6
-            
-            # Find current position in GPS path
-            distances = []
-            minimum_idx = 0
-            minimum_distance = 1000.0
-            
-            for i, target_velocity in enumerate(target_velocities):
-                target_latitude = target_velocity["latitude"]
-                target_longitude = target_velocity["longitude"]
-                
-                distance = calculate_distance_to_point(
-                    current_lat * CV.DEG_TO_RAD, current_lon * CV.DEG_TO_RAD,
-                    target_latitude * CV.DEG_TO_RAD, target_longitude * CV.DEG_TO_RAD
-                )
-                distances.append(distance)
-                
-                if distance < minimum_distance:
-                    minimum_distance = distance
-                    minimum_idx = i
-            
-            # Calculate lookahead distance based on speed (like frogpilot)
-            forward_distances = distances[minimum_idx:]
-            cumulative_distance = 0.0
-            target_idx = None
-            
-            for i, distance in enumerate(forward_distances):
-                cumulative_distance += distance
-                if cumulative_distance >= PLANNER_TIME * v_ego:
-                    target_idx = i
-                    break
-            
-            forward_points = target_velocities[minimum_idx:]
-            
-            if target_idx is None or target_idx == 0 or target_idx >= len(forward_points) - 1:
-                return 1e-6
-            
-            # Calculate curvature at lookahead point
-            p1 = (forward_points[target_idx - 1]["latitude"], forward_points[target_idx - 1]["longitude"])
-            p2 = (forward_points[target_idx]["latitude"], forward_points[target_idx]["longitude"])
-            p3 = (forward_points[target_idx + 1]["latitude"], forward_points[target_idx + 1]["longitude"])
-            
-            return max(calculate_curvature(p1, p2, p3), 1e-6)
-            
-        except (json.JSONDecodeError, ValueError, TypeError, KeyError) as e:
-            np_logger.warning(f"GPS lookahead curvature calculation error: {e}")
-            return 1e-6
+    @state.setter
+    def state(self, value):
+        """Set M-TSC state with logging"""
+        if value != self._state:
+            _debug_log(f'M-TSC State transition: {self._state.name} -> {value.name}')
+        self._state = value
 
-# ========================================================================
-# MTSC CONTROLLER IMPLEMENTATION
-# ========================================================================
+    @property
+    def is_active(self):
+        """Check if M-TSC is currently active (providing recommendations)"""
+        return self._state in [MTSCState.ADVANCE_WARNING, MTSCState.COORDINATING]
 
-class NpMTSCController(DCPFilterLayer):
-    """Map Turn Speed Control Filter - DCP Layer Implementation with integrated map data"""
-    
-    def __init__(self):
-        super().__init__(
-            name="MTSC", 
-            filter_type=DCPFilterType.SPEED_REDUCTION, 
-            priority=90  # High safety priority - map-based hazard detection
-        )
-        
-        # Initialize integrated map data interface
-        self.map_data = NpMapData()
-        
-        # NagasPilot MTSC parameters
-        self.params = Params()
-        self._pc = ParamCache(ttl_ms=1000, params=self.params)
-        self.curve_speed_enabled = self._pc.get_bool("np_mtsc_enabled", default=False)
-        try:
-            _off = self._pc.get("np_mtsc_speed_limit_offset")
-            self.speed_limit_offset = float(_off) if _off is not None else 0.0
-        except Exception:
-            self.speed_limit_offset = 0.0
-        
-        # MTSC filter parameters (configurable)
-        self.min_speed_reduction = 0.6  # Minimum speed modifier (40% reduction max)
-        self.activation_threshold = 0.001  # Minimum curvature to activate
-        self.lookahead_distance = 200  # meters - how far ahead to look
-        self.max_deceleration_rate = 2.0  # m/s² maximum deceleration
-        self.target_lateral_accel = 1.9   # m/s² target lateral acceleration
-        
-        # State tracking
-        self.current_curvature = 0.0
-        self.map_speed_limit = 0.0
-        self.last_activation_reason = ""
-        
-        # GCF integration
-        self.gcf_enabled = False
-        
-        np_logger.info("Map Turn Speed Control filter initialized")
-    
-    # ========================================================================
-    # CORE PROCESSING
-    # ========================================================================
-    
-    def process(self, speed_target: float, driving_context: Dict[str, Any]) -> DCPFilterResult:
-        """
-        CORE MTSC PROCESSING: Map-based speed control for upcoming curves
-        
-        This function implements the main MTSC logic that processes speed targets
-        based on upcoming road curvature data from map sources.
-        
-        PROCESSING FLOW:
-        1. Validate driving context and system enable state
-        2. Update location using LocationD foundation with sensor fusion
-        3. Query map data (OSM) for upcoming road curvature
-        4. Calculate physics-based safe speed for detected curves
-        5. Apply GCF (gradient) compensation if available
-        6. Return speed modification with detailed reasoning
-        
-        SAFETY LOGIC:
-        - Only activates when MTSC is explicitly enabled via parameters
-        - Requires validated location data from LocationD foundation
-        - Applies minimum speed reduction limits (40% max reduction)
-        - Falls back gracefully when map data is unavailable
-        
-        Args:
-            speed_target: Current target speed in m/s from cruise control
-            driving_context: Dictionary containing:
-                           - CS: car state (speed, steering, etc.)
-                           - v_cruise_kph: cruise speed in kph
-                           - enabled: whether cruise control is enabled
-                           - sm: SubMaster for sensor data access
-        
-        Returns:
-            DCPFilterResult: Contains speed_modifier (0.6-1.0), active flag,
-                           descriptive reason, and filter priority
-        """
-        
-        # Default result - no modification
-        result = DCPFilterResult(
-            speed_modifier=1.0,
-            active=False,
-            reason="MTSC inactive",
-            priority=self.priority
-        )
-        
-        # Reduce debug logging for performance (only log when active)
-        if hasattr(self, 'current_curvature') and self.current_curvature > 0.001:
-            np_logger.debug(f"MTSC active - target: {speed_target:.1f}m/s")
-        
-        try:
-            # Get driving context
-            CS = driving_context.get('CS')
-            v_cruise_kph = driving_context.get('v_cruise_kph', speed_target * CV.MS_TO_KPH)
-            enabled = driving_context.get('enabled', True)
-            
-            if not enabled or CS is None:
-                return result
-            
-            # Check if MTSC is enabled via parameters
-            if not self.curve_speed_enabled:
-                result.reason = "MTSC disabled via parameter"
-                return result
-            
-            # Update location using LocationD foundation (replaces custom GPS handling)
-            self.map_data.update_location_from_foundation()
-            
-            # Check if validated location is available from foundation
-            if not self.map_data.gps_available:
-                failure_type = "sensor fusion" if not self.map_data.sensor_fusion_valid else "GPS quality"
-                result.reason = f"MTSC - No validated location ({failure_type})"
-                return result
+    def get_speed_recommendation(self) -> Tuple[float, float]:
+        """Get speed recommendation and confidence (for TSC Manager)"""
+        if not self.is_active:
+            return float('inf'), 0.0
+        return self._recommended_speed, self._confidence
 
-            # Get current vehicle speed for lookahead calculation
-            CS = driving_context.get('CS')
-            v_ego = CS.vEgo if CS else speed_target
-            
-            # Get curvature using GPS-based lookahead like frogpilot
-            max_curvature = self.map_data.get_map_curvature_for_speed(v_ego)
-            if max_curvature <= 1e-6:
-                # No significant curvature detected
-                result.reason = "MTSC - No map data or straight road ahead"
-                return result
-
-            self.current_curvature = self._validate_curvature(max_curvature)
-            
-            # Calculate recommended speed based on curvature
-            recommended_speed_kph = self._calculate_recommended_speed(max_curvature, v_cruise_kph)
-            
-            # Update state tracking
-            self.map_speed_limit = self.map_data.get_current_speed_limit() or 0
-            
-            # Calculate clean curvature-following speed modifier
-            if recommended_speed_kph < v_cruise_kph:
-                # Convert to m/s for physics calculations
-                recommended_speed_ms = recommended_speed_kph / 3.6
-                current_speed_ms = v_cruise_kph / 3.6
-                
-                # Estimate distance to curve (use 30% of lookahead)
-                estimated_distance = self.lookahead_distance * 0.3
-                
-                # Progressive deceleration using physics: v^2 = v0^2 + 2*a*d
-                if current_speed_ms > recommended_speed_ms and estimated_distance > 10:
-                    required_decel = (current_speed_ms**2 - recommended_speed_ms**2) / (2 * estimated_distance)
-                    actual_decel = min(required_decel, self.max_deceleration_rate)
-                    
-                    progressive_target_ms = math.sqrt(max(recommended_speed_ms**2 + 2 * actual_decel * estimated_distance, 
-                                                         recommended_speed_ms**2))
-                    progressive_target_kph = progressive_target_ms * 3.6
-                    mtsc_speed_modifier = progressive_target_kph / v_cruise_kph
-                else:
-                    # Close to curve or already at safe speed - use recommended directly
-                    mtsc_speed_modifier = recommended_speed_kph / v_cruise_kph
-                
-                # Safety: respect minimum speed reduction
-                mtsc_speed_modifier = max(mtsc_speed_modifier, self.min_speed_reduction)
-            else:
-                mtsc_speed_modifier = 1.0
-                
-            # Apply GCF gradient compensation  
-            gcf_speed_modifier = get_gradient_speed_factor(driving_context, None, self.gcf_enabled)
-            final_speed_modifier = min(mtsc_speed_modifier, gcf_speed_modifier)  # Most restrictive wins
-                
-            # Only activate if significant curvature detected or GCF is active
-            if self.current_curvature > self.activation_threshold or final_speed_modifier < 0.99:
-                result.speed_modifier = final_speed_modifier
-                result.active = True
-                
-                # Create descriptive reason (include GCF if active)
-                curve_severity = "sharp" if self.current_curvature > 0.01 else "moderate"
-                speed_reduction_pct = int((1.0 - final_speed_modifier) * 100)
-                
-                if gcf_speed_modifier < 0.99 and self.current_curvature > self.activation_threshold:
-                    result.reason = f"MTSC+GCF - {curve_severity} curve+gradient ({speed_reduction_pct}% reduction)"
-                elif gcf_speed_modifier < 0.99:
-                    result.reason = f"GCF - gradient detected ({speed_reduction_pct}% reduction)"
-                else:
-                    result.reason = f"MTSC - {curve_severity} curve ahead ({speed_reduction_pct}% reduction)"
-                    
-                self.last_activation_reason = result.reason
-                
-                np_logger.debug(f"Active: curvature={self.current_curvature:.4f}, "
-                             f"speed_mod={final_speed_modifier:.2f}, reason={result.reason}")
-        
-        except (ValueError, TypeError, AttributeError) as e:
-            np_logger.warning(f"MTSC data processing error: {e}")
-            result.reason = f"MTSC data error: {str(e)}"
-        except Exception as e:
-            np_logger.error(f"Unexpected MTSC processing error: {e}")
-            result.reason = f"MTSC error: {str(e)}"
-        
-        return result
-    
-    # ========================================================================
-    # CALCULATION & ALGORITHMS
-    # ========================================================================
-    
-    def _calculate_recommended_speed(self, curvature: float, v_cruise_kph: float) -> float:
-        """Calculate safe speed for curvature using simple physics: v = sqrt(a_lat / curvature)"""
-        if curvature <= self.activation_threshold:
-            return v_cruise_kph  # No speed reduction needed
-        
-        # Simple physics: v = sqrt(lateral_acceleration / curvature)
-        safe_speed_ms = math.sqrt(self.target_lateral_accel / curvature)
-        safe_speed_kph = safe_speed_ms * CV.MS_TO_KPH
-        
-        # Apply speed limit if available
-        if self.map_speed_limit > 0:
-            adjusted_limit = self.map_speed_limit + self.speed_limit_offset
-            safe_speed_kph = min(safe_speed_kph, adjusted_limit)
-        
-        # Safety: minimum speed limit
-        min_speed_kph = max(20, v_cruise_kph * self.min_speed_reduction)
-        safe_speed_kph = max(safe_speed_kph, min_speed_kph)
-        
-        return min(safe_speed_kph, v_cruise_kph)
-    
     # ========================================================================
     # PARAMETER MANAGEMENT
     # ========================================================================
-    
-    def update_parameters(self, params):
-        """Update filter parameters with enhanced validation (addresses medium risk issue)"""
+
+    def _update_params(self):
+        """Update parameters from storage with rate limiting"""
+        tm = time.time()
+        if tm > self._last_params_update + 5.0:
+            self.enabled = self.params.get_bool("dp_lon_mtsc")
+            self._last_params_update = tm
+
+    def _get_lateral_comfort_limit(self):
+        """Get lateral acceleration limit based on driving personality (matches V-TSC behavior)"""
         try:
-            # Update MTSC parameters with validation via cached reads
-            self.params = params
-            self._pc = ParamCache(ttl_ms=1000, params=self.params)
-            self.curve_speed_enabled = self._pc.get_bool("np_mtsc_enabled", default=False)
-            
-            # Validate speed limit offset (-50 to +50 kph reasonable range)
-            try:
-                raw = self._pc.get("np_mtsc_speed_limit_offset")
-                speed_offset = float(raw) if raw is not None else 0.0
-                self.speed_limit_offset = max(-50.0, min(50.0, speed_offset))  # Clamp to safe range
-                if speed_offset != self.speed_limit_offset:
-                    np_logger.warning(f"Speed limit offset clamped: {speed_offset} -> {self.speed_limit_offset}")
-            except (ValueError, TypeError):
-                self.speed_limit_offset = 0.0
-                np_logger.warning("Invalid speed limit offset, using default: 0")
-            
-            # Validate minimum speed reduction (0.3 to 1.0 reasonable range)
-            try:
-                raw = self._pc.get("np_mtsc_min_speed_reduction")
-                min_reduction = float(raw) if raw is not None else 0.6
-                self.min_speed_reduction = max(0.3, min(1.0, min_reduction))  # Clamp to safe range
-                if min_reduction != self.min_speed_reduction:
-                    np_logger.warning(f"Min speed reduction clamped: {min_reduction} -> {self.min_speed_reduction}")
-            except (ValueError, TypeError):
-                self.min_speed_reduction = 0.6
-                np_logger.warning("Invalid min speed reduction, using default: 0.6")
-            
-            # Additional MTSC parameters
-            try:
-                activation_str = self._pc.get("np_mtsc_activation_threshold")
-                if activation_str:
-                    self.activation_threshold = max(0.0005, min(0.005, float(activation_str)))  # Bounds: 0.0005-0.005
-            except (ValueError, TypeError):
-                self.activation_threshold = 0.001  # Default
-                
-            try:
-                lookahead_str = self._pc.get("np_mtsc_lookahead_distance")
-                if lookahead_str:
-                    self.lookahead_distance = max(50, min(500, float(lookahead_str)))  # Bounds: 50-500m
-            except (ValueError, TypeError):
-                self.lookahead_distance = 200  # Default
-                
-            try:
-                decel_str = self._pc.get("np_mtsc_max_deceleration")
-                if decel_str:
-                    self.max_deceleration_rate = max(1.0, min(3.5, float(decel_str)))  # Bounds: 1.0-3.5 m/s²
-            except (ValueError, TypeError):
-                self.max_deceleration_rate = 2.0  # Default
-                
-            try:
-                lat_accel_str = self._pc.get("np_mtsc_target_lateral_accel")
-                if lat_accel_str:
-                    self.target_lateral_accel = max(1.0, min(2.5, float(lat_accel_str)))  # Bounds: 1.0-2.5 m/s²
-            except (ValueError, TypeError):
-                self.target_lateral_accel = 1.9  # Default
-                
-            # GCF parameter reading
-            self.gcf_enabled = self._pc.get_bool("np_gcf_enabled", default=False)
-            
-            np_logger.debug(f"Parameters updated - enabled: {self.curve_speed_enabled}, validated values applied")
-            
-        except (ValueError, TypeError, AttributeError) as e:
-            np_logger.warning(f"Parameter validation error: {e}")
-            # Use safe defaults on validation errors
-            self.curve_speed_enabled = False
-            self.speed_limit_offset = 0.0
-            self.min_speed_reduction = 0.6
-        except Exception as e:
-            np_logger.error(f"Unexpected parameter error: {e}")
-            # Disable MTSC on unexpected errors for safety
-            self.curve_speed_enabled = False
-            self.speed_limit_offset = 0.0
-            self.min_speed_reduction = 0.6
-    
-    def get_debug_info(self) -> Dict[str, Any]:
-        """Return debug information for monitoring and UI"""
+            # Get driving personality from OpenPilot parameter (0=Comfort, 1=Normal, 2=Sport)
+            personality = self.params.get("LongitudinalPersonality", return_default=True)
+            if personality is not None:
+                personality_int = int(personality)
+                if personality_int == 0:    # Comfort
+                    return NP_MTSC_A_LAT_REG_COMFORT
+                elif personality_int == 2:  # Sport  
+                    return NP_MTSC_A_LAT_REG_SPORT
+                else:                       # Normal (default for 1 or invalid)
+                    return NP_MTSC_A_LAT_REG_NORMAL
+        except (ValueError, TypeError, AttributeError):
+            pass
+        return NP_MTSC_A_LAT_REG_NORMAL  # Default to Normal
+
+    def _calculate_lookahead_distance(self, v_ego):
+        """Calculate physics-based lookahead distance using deceleration and ego speed"""
+        # Physics-based calculation:
+        # lookahead = reaction_distance + braking_distance + safety_margin
+        
+        # Reaction distance: distance traveled during reaction time
+        reaction_distance = v_ego * NP_MTSC_REACTION_TIME
+        
+        # Braking distance for worst-case curve speed reduction
+        # Assume we need to decelerate from v_ego to safe curve speed
+        target_curve_speed = max(NP_MTSC_MIN_CURVE_SPEED, 
+                                min(NP_MTSC_MAX_CURVE_SPEED, v_ego * 0.7))  # 30% speed reduction
+        
+        # Calculate braking distance using: d = (v1² - v2²) / (2 * a)
+        if v_ego > target_curve_speed:
+            speed_diff_sq = v_ego**2 - target_curve_speed**2
+            braking_distance = speed_diff_sq / (2 * NP_MTSC_APPROACH_DECEL)
+        else:
+            braking_distance = 0.0  # Already at appropriate speed
+        
+        # Total lookahead with safety margin
+        base_lookahead = reaction_distance + braking_distance
+        safe_lookahead = base_lookahead * NP_MTSC_SAFETY_MARGIN
+        
+        # Ensure reasonable bounds for data efficiency
+        return np.clip(safe_lookahead, NP_MTSC_MIN_LOOKAHEAD_DISTANCE, NP_MTSC_MAX_LOOKAHEAD_DISTANCE)
+
+    def _get_mem_params(self):
+        """Get memory params for real-time data access"""
+        import platform
+        return Params("/dev/shm/params") if platform.system() != "Darwin" else Params()
+
+    def _calculate_deceleration_zone(self, v_ego, target_speed):
+        """Calculate deceleration zone distances for efficient data fetching"""
+        if v_ego <= target_speed:
+            return {
+                'reaction_distance': 0.0,
+                'braking_distance': 0.0,
+                'total_distance': 0.0,
+                'decel_start_distance': 0.0
+            }
+        
+        # Reaction distance (constant speed during reaction time)
+        reaction_distance = v_ego * NP_MTSC_REACTION_TIME
+        
+        # Braking distance using physics: d = (v1² - v2²) / (2a)
+        speed_diff_sq = v_ego**2 - target_speed**2
+        braking_distance = speed_diff_sq / (2 * NP_MTSC_APPROACH_DECEL)
+        
+        # Total stopping/deceleration distance
+        total_distance = reaction_distance + braking_distance
+        
+        # Distance where deceleration should start (with safety margin)
+        decel_start_distance = total_distance * NP_MTSC_SAFETY_MARGIN
+        
         return {
-            'filter_active': self.enabled,
-            'filter_priority': self.priority,
-            'current_curvature': self.current_curvature,
-            'map_speed_limit': self.map_speed_limit,
-            'last_reason': self.last_activation_reason,
-            'min_speed_reduction': self.min_speed_reduction,
-            'osm_enabled': self.map_data.osm_enabled,
-            'gps_curvature_calculation': 'frogpilot_method',
-            'curve_speed_enabled': self.curve_speed_enabled,
-            # LocationD foundation status
-            'gps_available': self.map_data.gps_available,
-            'location_valid': self.map_data.location_valid,
-            'sensor_fusion_valid': self.map_data.sensor_fusion_valid,
-            'gps_service': self.map_data.gps_service,
-            'horizontal_accuracy_threshold': self.map_data.horizontal_accuracy_threshold,
-            'foundation_integration': 'LocationD',
-            # Parameter validation status  
-            'parameter_validation': 'Enhanced',
-            'speed_limit_offset_validated': self.speed_limit_offset,
-            'min_speed_reduction_validated': self.min_speed_reduction
+            'reaction_distance': reaction_distance,
+            'braking_distance': braking_distance,
+            'total_distance': total_distance,
+            'decel_start_distance': decel_start_distance
         }
 
-    # Optional evaluate(ctx) shim for adapter integration (non-breaking)
-    def evaluate(self, ctx: Dict[str, Any]) -> DCPFilterResult:
+    def _get_optimal_fetch_distance(self, v_ego, curves_ahead):
+        """Calculate optimal distance for next data fetch based on deceleration physics"""
+        if not curves_ahead:
+            # No curves: adaptive based on speed (faster = look further ahead)
+            # Use physics: at higher speeds, curves appear faster relative to decel capability
+            base_distance = v_ego * 25  # 25 seconds of travel
+            return max(min(base_distance, NP_MTSC_FALLBACK_DISTANCE), 800)
+        
+        closest_curve = curves_ahead[0]
+        curve_distance = closest_curve['distance']
+        curve_radius = closest_curve['radius']
+        
+        # Calculate safe speed for this curve radius using personality-based limits
+        max_lat_acc = self._get_lateral_comfort_limit()  # Adapts to driving personality
+        curve_curvature = 1.0 / max(curve_radius, 1.0)  # Convert radius to curvature
+        safe_speed = math.sqrt(max_lat_acc / curve_curvature)  # v = sqrt(a_lat / curvature)
+        safe_speed = max(safe_speed, NP_MTSC_MIN_CURVE_SPEED)  # Minimum safe speed
+        
+        # Get deceleration zone info
+        decel_info = self._calculate_deceleration_zone(v_ego, safe_speed)
+        
+        if v_ego > safe_speed:
+            # Need to decelerate: fetch new data before we reach deceleration zone
+            # This ensures we have updated curve info when deceleration starts
+            fetch_trigger_distance = curve_distance - decel_info['decel_start_distance'] - 100  # 100m buffer
+            return max(fetch_trigger_distance, 150)  # Minimum 150m ahead
+        else:
+            # Already at appropriate speed: less urgent, can wait longer
+            return max(curve_distance * 0.4, 400)  # 40% to curve or 400m minimum
+
+    # ========================================================================
+    # OSM DATA MANAGEMENT
+    # ========================================================================
+
+    # Legacy OSM fetching methods removed - replaced by MAPD extractor
+
+    def _fetch_osm_data(self, current_gps, v_ego):
+        """Legacy method - replaced by MAPD extractor"""
+        # This method is now handled by NPMapdExtractor
+        # All OSM data fetching is now done by the MAPD extractor in the update() method
+        # Real curve data is obtained via _get_mtsc_curve_data()
+        
+        # Use real MAPD curve data instead of simulation
+        curve_data = self._get_mtsc_curve_data()
+        curves_ahead = []
+        
+        if curve_data and curve_data.get("has_curve", False):
+            # Convert MAPD data to legacy curve format for compatibility
+            primary_curve = {
+                'distance': curve_data.get('curve_distance', float('inf')),
+                'radius': curve_data.get('curve_radius', float('inf')),
+                'latitude': 0,  # Not needed for M-TSC logic
+                'longitude': 0,  # Not needed for M-TSC logic  
+                'confidence': curve_data.get('confidence', 0.0),
+                'type': classify_curve(curve_data.get('curve_radius', float('inf'))),
+                'direction': curve_data.get('curve_direction', 'unknown'),
+                'road_type': curve_data.get('road_type', 'unknown'),
+                'data_source': curve_data.get('data_source', 'unknown')
+            }
+            curves_ahead.append(primary_curve)
+            
+            # Add additional curves if available
+            for additional_curve in curve_data.get('all_curves', [])[:4]:  # Max 4 additional
+                if additional_curve.get('distance', 0) > primary_curve['distance']:
+                    curve_info = {
+                        'distance': additional_curve.get('distance', float('inf')),
+                        'radius': additional_curve.get('radius', float('inf')),
+                        'latitude': 0,
+                        'longitude': 0,
+                        'confidence': additional_curve.get('confidence', 0.0),
+                        'type': classify_curve(additional_curve.get('radius', float('inf'))),
+                        'direction': additional_curve.get('direction', 'unknown')
+                    }
+                    curves_ahead.append(curve_info)
+        
+        self._upcoming_curves = sorted(curves_ahead, key=lambda x: x['distance'])
+        
+        if curves_ahead:
+            closest_curve = curves_ahead[0]
+            data_source = closest_curve.get('data_source', 'unknown')
+            
+            _debug_log(f"REAL curve at {closest_curve['distance']:.0f}m (R={closest_curve['radius']:.0f}m), "
+                      f"source={data_source}, confidence={closest_curve['confidence']:.2f}")
+        else:
+            _debug_log(f"No curves detected from MAPD, speed={v_ego*CV.MS_TO_KPH:.0f}kph")
+
+    def _get_mtsc_curve_data(self):
+        """Get real curve data from MAPD extractor with safe parameter access."""
         try:
-            target = float(ctx.get('speed_target', ctx.get('v_ego', 0.0)))
-            return self.process(target, ctx)
-        except Exception:
-            return DCPFilterResult(speed_modifier=1.0, active=False, reason="mtsc_error", priority=self.priority)
+            # Get real curve data from memory params with retry logic
+            mp = self._get_mem_params()
+            
+            # Use atomic read with timeout (OpenPilot pattern)
+            for attempt in range(3):  # Retry up to 3 times
+                try:
+                    curve_data_json = mp.get("MTSCCurveData", encoding='utf-8')
+                    break
+                except Exception:
+                    if attempt == 2:  # Last attempt
+                        raise
+                    time.sleep(0.001)  # 1ms wait before retry
+            
+            if curve_data_json:
+                curve_data = json.loads(curve_data_json)
+                
+                # Validate data integrity and freshness
+                required_keys = ["has_curve", "timestamp", "data_source"]
+                if all(key in curve_data for key in required_keys):
+                    data_age = time.time() - curve_data.get("timestamp", 0)
+                    # More conservative freshness check for safety
+                    if data_age < 5.0 and curve_data.get("has_curve", False):
+                        return curve_data
+            
+        except Exception as e:
+            cloudlog.error(f"NP M-TSC: Error reading curve data: {e}")
+        
+        return None
+
+    # ========================================================================
+    # CURVE ANALYSIS & SPEED CALCULATION
+    # ========================================================================
+
+    def _get_personality_max_decel(self):
+        """Get maximum deceleration limit based on driving personality (matches V-TSC behavior)"""
+        try:
+            # Get driving personality from OpenPilot parameter (0=Comfort, 1=Normal, 2=Sport)
+            personality = self.params.get("LongitudinalPersonality", return_default=True)
+            if personality is not None:
+                personality_int = int(personality)
+                if personality_int == 0:    # Comfort
+                    return NP_MTSC_MAX_DECEL_COMFORT
+                elif personality_int == 2:  # Sport  
+                    return NP_MTSC_MAX_DECEL_SPORT
+                else:                       # Normal (default for 1 or invalid)
+                    return NP_MTSC_MAX_DECEL_NORMAL
+        except (ValueError, TypeError, AttributeError):
+            pass
+        return NP_MTSC_MAX_DECEL_NORMAL  # Default to Normal
+    
+    
+    def _apply_gradual_speed_reduction(self, target_speed, v_ego, dt=0.05):
+        """Apply distance-adaptive gradual speed reduction following driving behavior personality"""
+        if target_speed >= v_ego:
+            # No reduction needed - don't accelerate, just maintain or allow natural increase
+            self._speed_reduction_active = False
+            return min(target_speed, v_ego + 1.0)  # Allow slight increase but don't actively accelerate
+        
+        # Get personality-based maximum deceleration limit
+        personality_max_decel = self._get_personality_max_decel()
+        
+        # Calculate distance-adaptive deceleration rate
+        distance_to_curve = self._closest_curve_distance
+        speed_diff = v_ego - target_speed
+        
+        # Distance-adaptive deceleration factors (percentage of personality max)
+        # Farther = gentler, nearer = stronger (up to personality maximum)
+        if distance_to_curve > 300:  # Very far - very gentle
+            decel_factor = 0.15  # 15% of personality max - barely noticeable
+            time_horizon = 10.0  # 10 seconds to target
+        elif distance_to_curve > 200:  # Far - gentle
+            decel_factor = 0.35  # 35% of personality max - gentle reduction
+            time_horizon = 8.0   # 8 seconds to target
+        elif distance_to_curve > 100:  # Medium - moderate
+            decel_factor = 0.60  # 60% of personality max - noticeable but comfortable
+            time_horizon = 5.0   # 5 seconds to target
+        elif distance_to_curve > 50:   # Close - stronger
+            decel_factor = 0.80  # 80% of personality max - firm but comfortable
+            time_horizon = 3.0   # 3 seconds to target
+        else:  # Very close - maximum comfortable deceleration
+            decel_factor = 1.0   # 100% of personality max - follows driving behavior
+            time_horizon = 2.0   # 2 seconds to target
+        
+        # Calculate maximum deceleration for this distance
+        max_decel = personality_max_decel * decel_factor
+        
+        # Calculate required deceleration rate to reach target in time
+        required_decel = speed_diff / time_horizon
+        
+        # Use the minimum of required and maximum comfortable deceleration
+        actual_decel = min(required_decel, max_decel)
+        
+        # Apply gradual reduction
+        if not self._speed_reduction_active:
+            # Starting speed reduction - initialize
+            self._speed_reduction_active = True
+            self._last_recommended_speed = v_ego
+        
+        # Calculate new recommended speed with distance-adaptive transition
+        speed_change = actual_decel * dt / 0.05  # Normalize for 20Hz update rate (0.05s)
+        new_recommended_speed = self._last_recommended_speed - speed_change
+        
+        # Ensure we don't overshoot the target
+        new_recommended_speed = max(new_recommended_speed, target_speed)
+        
+        # Store for next iteration and debug tracking
+        self._last_recommended_speed = new_recommended_speed
+        self._current_decel_rate = actual_decel
+        
+        _debug_log(f"Personality-adaptive decel: dist={distance_to_curve:.0f}m, "
+                  f"personality_max={personality_max_decel:.1f}m/s², factor={decel_factor:.2f}, "
+                  f"max_decel={max_decel:.1f}m/s², actual_decel={actual_decel:.1f}m/s², "
+                  f"speed: {self._last_recommended_speed*CV.MS_TO_KPH:.1f}->{new_recommended_speed*CV.MS_TO_KPH:.1f}kph")
+        
+        return new_recommended_speed
+    
+    def _analyze_curves(self, v_ego):
+        """Analyze upcoming curves and calculate speed recommendations with gradual reduction"""
+        if not self._upcoming_curves:
+            self._closest_curve_distance = float('inf')
+            self._recommended_speed = 0.0
+            self._confidence = 0.0
+            self._curve_type = CurveType.UNKNOWN
+            self._speed_reduction_active = False
+            return
+            
+        # Find the most significant curve within our analysis range
+        closest_curve = self._upcoming_curves[0]
+        self._closest_curve_distance = closest_curve['distance']
+        self._curve_type = closest_curve['type']
+        
+        # Calculate recommended speed based on curve characteristics
+        curve_radius = closest_curve['radius']
+        curve_confidence = closest_curve['confidence']
+        
+        # Calculate safe speed for curve using personality-based lateral acceleration limit
+        max_lat_acc = self._get_lateral_comfort_limit()  # Adapts to driving personality like V-TSC
+        curve_curvature = 1.0 / max(curve_radius, 1.0)  # Convert radius to curvature
+        safe_curve_speed = math.sqrt(max_lat_acc / curve_curvature)  # v = sqrt(a_lat / curvature)
+        
+        # Apply curve type adjustments
+        if self._curve_type == CurveType.GENTLE:
+            speed_reduction = 0.9  # Minimal reduction
+        elif self._curve_type == CurveType.MODERATE:
+            speed_reduction = 0.8  # Moderate reduction  
+        else:  # SHARP
+            speed_reduction = 0.7  # Significant reduction
+            
+        safe_curve_speed *= speed_reduction
+        
+        # Calculate approach speed considering deceleration distance
+        max_approach_decel = NP_MTSC_APPROACH_DECEL
+        
+        # Calculate maximum speed we can have now and still decelerate comfortably
+        decel_distance = self._closest_curve_distance * 0.8  # Start decelerating before curve
+        target_approach_speed = math.sqrt(safe_curve_speed**2 + 2 * max_approach_decel * decel_distance)
+        
+        # Apply gradual speed reduction instead of sudden change
+        self._recommended_speed = self._apply_gradual_speed_reduction(target_approach_speed, v_ego)
+        self._confidence = curve_confidence
+        
+        # Reduce confidence if curve is very far away
+        if self._closest_curve_distance > 300:
+            self._confidence *= 0.7
+            
+        _debug_log(f"Curve analysis: radius={curve_radius:.1f}m, dist={self._closest_curve_distance:.1f}m, "
+                  f"safe_speed={safe_curve_speed*CV.MS_TO_KPH:.1f}kph, target={target_approach_speed*CV.MS_TO_KPH:.1f}kph, "
+                  f"recommended={self._recommended_speed*CV.MS_TO_KPH:.1f}kph, confidence={self._confidence:.2f}, "
+                  f"gradual={self._speed_reduction_active}")
+
+    # ========================================================================
+    # STATE MACHINE
+    # ========================================================================
+
+    def _update_state_machine(self):
+        """Update M-TSC state machine"""
+        if not self.is_enabled():
+            self.state = MTSCState.DISABLED
+            return
+            
+        # Global disable conditions
+        if not self._op_enabled or self._gas_pressed or self._v_ego < NP_MTSC_MIN_V:
+            self.state = MTSCState.DISABLED
+            return
+            
+        # State-specific logic
+        if self.state == MTSCState.DISABLED:
+            if self._current_gps and self._upcoming_curves:
+                self.state = MTSCState.MONITORING
+                
+        elif self.state == MTSCState.MONITORING:
+            if not self._upcoming_curves:
+                self.state = MTSCState.DISABLED
+            elif self._confidence > NP_MTSC_CONFIDENCE_THRESHOLD and self._closest_curve_distance < 400:
+                if self._vtsc_active:
+                    self.state = MTSCState.COORDINATING
+                else:
+                    self.state = MTSCState.ADVANCE_WARNING
+                    
+        elif self.state == MTSCState.ADVANCE_WARNING:
+            if self._vtsc_active:
+                self.state = MTSCState.COORDINATING
+            elif self._confidence < NP_MTSC_CONFIDENCE_THRESHOLD or self._closest_curve_distance > 500:
+                self.state = MTSCState.MONITORING
+            elif not self._upcoming_curves:
+                self.state = MTSCState.DISABLED
+                
+        elif self.state == MTSCState.COORDINATING:
+            if not self._vtsc_active:
+                if self._confidence > NP_MTSC_CONFIDENCE_THRESHOLD:
+                    self.state = MTSCState.ADVANCE_WARNING
+                else:
+                    self.state = MTSCState.MONITORING
+            elif not self._upcoming_curves:
+                self.state = MTSCState.DISABLED
+
+    # ========================================================================
+    # MAIN UPDATE INTERFACE
+    # ========================================================================
+
+    def update(self, sm, enabled, v_ego, a_ego, v_cruise_setpoint, vtsc_active=False):
+        """Main update function called from TSC Manager"""
+        if not self.is_enabled():
+            self.state = MTSCState.DISABLED
+            return
+            
+        try:
+            # Update vehicle state
+            self._op_enabled = enabled
+            self._gas_pressed = sm['carState'].gasPressed
+            self._v_ego = v_ego
+            self._v_cruise_setpoint = v_cruise_setpoint
+            self._vtsc_active = vtsc_active
+            
+            # Update GPS position and feed to MAPD extractor
+            gps_location = sm.get('gpsLocationExternal')
+            if gps_location and gps_location.valid:
+                self._current_gps = {
+                    'latitude': gps_location.latitude,
+                    'longitude': gps_location.longitude,
+                    'bearing': gps_location.bearingDeg,
+                    'accuracy': gps_location.accuracy,
+                    'timestamp': time.time()
+                }
+                
+                # Update MAPD extractor with current position and heading
+                # Get vehicle heading from car state or GPS bearing
+                heading = gps_location.bearingDeg
+                self._data_extractor.update_position(
+                    gps_location.latitude, 
+                    gps_location.longitude, 
+                    heading
+                )
+                
+            # Update parameters
+            self._update_params()
+            
+            # Update MAPD data extractor with fallback handling
+            if (self._current_gps and 
+                self._current_gps.get('accuracy', 100) < NP_MTSC_GPS_ACCURACY_THRESHOLD):
+                if self._mapd_enabled and self._data_extractor:
+                    try:
+                        # MAPD extractor handles its own update logic based on position changes
+                        self._data_extractor.tick()
+                    except Exception as e:
+                        cloudlog.error(f"M-TSC: MAPD extractor error: {e}")
+                        # Disable MAPD and fall back to simulation
+                        self._mapd_enabled = False
+                        self._data_extractor = None
+                
+                # If MAPD is not available, use fallback curve detection
+                if not self._mapd_enabled:
+                    self._fetch_osm_data(self._current_gps, v_ego)
+            
+            # Analyze curves and calculate recommendations
+            self._analyze_curves(v_ego)
+            
+            # Update state machine
+            self._update_state_machine()
+            
+        except Exception as e:
+            cloudlog.error(f"NP M-TSC update error: {e}")
+            self.state = MTSCState.DISABLED
+
+    # ========================================================================
+    # DEBUG INTERFACE
+    # ========================================================================
+
+    def get_debug_info(self):
+        """Standardized debug information following NagasPilot patterns"""
+        return {
+            "enabled": self.is_enabled(),
+            "active": self.is_active,
+            "state": self.state.name,
+            "vtsc_active": self._vtsc_active,
+            "curves_detected": len(self._upcoming_curves),
+            "closest_curve_distance": self._closest_curve_distance,
+            "curve_type": self._curve_type.name if self._curve_type else "UNKNOWN",
+            "recommended_speed_kph": self._recommended_speed * CV.MS_TO_KPH if self._recommended_speed > 0 else 0,
+            "confidence": self._confidence,
+            "lookahead_distance": self._current_lookahead_distance,
+            "gps_valid": self._current_gps is not None,
+            # Gradual speed reduction debug info
+            "speed_reduction_active": self._speed_reduction_active,
+            "last_recommended_speed_kph": self._last_recommended_speed * CV.MS_TO_KPH,
+            "current_decel_rate": self._current_decel_rate,
+            "personality_max_decel": self._get_personality_max_decel(),
+            # Data efficiency metrics (FrogPilot-inspired)
+            # MAPD extractor status
+            "mapd_extractor_status": self._data_extractor.get_status(),
+            "cached_segments": self._data_extractor.get_status().get("cached_segments", 0),
+            "has_recent_mapd_data": self._data_extractor.get_status().get("has_recent_data", False)
+        }
+

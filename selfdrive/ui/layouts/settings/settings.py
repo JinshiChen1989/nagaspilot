@@ -36,6 +36,7 @@ class PanelType(IntEnum):
   TOGGLES = 2
   SOFTWARE = 3
   DEVELOPER = 4
+  NAVIGATION = 5
 
 
 @dataclass
@@ -57,6 +58,7 @@ class SettingsLayout(Widget):
       PanelType.TOGGLES: PanelInfo("Toggles", TogglesLayout()),
       PanelType.SOFTWARE: PanelInfo("Software", SoftwareLayout()),
       PanelType.DEVELOPER: PanelInfo("Developer", DeveloperLayout()),
+      PanelType.NAVIGATION: PanelInfo("Navigation", self._lazy_navigation_layout()),
     }
 
     self._font_medium = gui_app.font(FontWeight.MEDIUM)
@@ -147,6 +149,14 @@ class SettingsLayout(Widget):
   def set_current_panel(self, panel_type: PanelType):
     if panel_type != self._current_panel:
       self._current_panel = panel_type
+
+  def _lazy_navigation_layout(self):
+    # Import lazily to keep import-time dependencies light
+    try:
+      from openpilot.selfdrive.ui.layouts.settings.navigation import NavigationLayout
+      return NavigationLayout()
+    except Exception:
+      return None
 
   def close_settings(self):
     if self._close_callback:
