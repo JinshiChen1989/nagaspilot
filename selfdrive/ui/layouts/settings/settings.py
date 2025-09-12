@@ -5,7 +5,6 @@ from collections.abc import Callable
 from openpilot.selfdrive.ui.layouts.network import NetworkLayout
 from openpilot.selfdrive.ui.layouts.settings.developer import DeveloperLayout
 from openpilot.selfdrive.ui.layouts.settings.device import DeviceLayout
-from openpilot.selfdrive.ui.layouts.settings.firehose import FirehoseLayout
 from openpilot.selfdrive.ui.layouts.settings.software import SoftwareLayout
 from openpilot.selfdrive.ui.layouts.settings.toggles import TogglesLayout
 from openpilot.system.ui.lib.application import gui_app, FontWeight, MousePos
@@ -36,8 +35,7 @@ class PanelType(IntEnum):
   NETWORK = 1
   TOGGLES = 2
   SOFTWARE = 3
-  FIREHOSE = 4
-  DEVELOPER = 5
+  DEVELOPER = 4
 
 
 @dataclass
@@ -58,7 +56,6 @@ class SettingsLayout(Widget):
       PanelType.NETWORK: PanelInfo("Network", NetworkLayout()),
       PanelType.TOGGLES: PanelInfo("Toggles", TogglesLayout()),
       PanelType.SOFTWARE: PanelInfo("Software", SoftwareLayout()),
-      PanelType.FIREHOSE: PanelInfo("Firehose", FirehoseLayout()),
       PanelType.DEVELOPER: PanelInfo("Developer", DeveloperLayout()),
     }
 

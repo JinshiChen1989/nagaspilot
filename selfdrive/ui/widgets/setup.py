@@ -21,7 +21,7 @@ class SetupWidget(Widget):
     if ui_state.prime_state.get_type() == PrimeType.UNPAIRED:
       self._render_registration(rect)
     else:
-      self._render_firehose_prompt(rect)
+      pass  # Firehose prompt removed
 
   def _render_registration(self, rect: rl.Rectangle):
     """Render registration prompt."""
@@ -49,40 +49,6 @@ class SetupWidget(Widget):
     if gui_button(button_rect, "Pair device", button_style=ButtonStyle.PRIMARY):
       self._show_pairing()
 
-  def _render_firehose_prompt(self, rect: rl.Rectangle):
-    """Render firehose prompt widget."""
-
-    rl.draw_rectangle_rounded(rl.Rectangle(rect.x, rect.y, rect.width, 450), 0.02, 20, rl.Color(51, 51, 51, 255))
-
-    # Content margins (56, 40, 56, 40)
-    x = rect.x + 56
-    y = rect.y + 40
-    w = rect.width - 112
-    spacing = 42
-
-    # Title with fire emojis
-    title_font = gui_app.font(FontWeight.MEDIUM)
-    title_text = "Firehose Mode"
-    rl.draw_text_ex(title_font, title_text, rl.Vector2(x, y), 64, 0, rl.WHITE)
-    y += 64 + spacing
-
-    # Description
-    desc_font = gui_app.font(FontWeight.NORMAL)
-    desc_text = "Maximize your training data uploads to improve openpilot's driving models."
-    wrapped_desc = wrap_text(desc_font, desc_text, 40, int(w))
-
-    for line in wrapped_desc:
-      rl.draw_text_ex(desc_font, line, rl.Vector2(x, y), 40, 0, rl.WHITE)
-      y += 40
-
-    y += spacing
-
-    # Open button
-    button_height = 48 + 64  # font size + padding
-    button_rect = rl.Rectangle(x, y, w, button_height)
-    if gui_button(button_rect, "Open", button_style=ButtonStyle.PRIMARY):
-      if self._open_settings_callback:
-        self._open_settings_callback()
 
   def _show_pairing(self):
     if not self._pairing_dialog:

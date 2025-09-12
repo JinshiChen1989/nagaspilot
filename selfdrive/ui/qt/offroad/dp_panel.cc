@@ -1,144 +1,17 @@
 #include "selfdrive/ui/qt/offroad/dp_panel.h"
 
-void DPPanel::add_toyota_toggles() {
-  std::vector<std::tuple<QString, QString, QString>> toggle_defs{
-    {
-      "",
-      QString::fromUtf8("🐉 ") + tr("Toyota / Lexus"),
-      "",
-    },
-    {
-      "dp_toyota_door_auto_lock_unlock",
-      tr("Enable Door Auto Lock/Unlock"),
-      "",
-    },
-    {
-      "dp_toyota_tss1_sng",
-      tr("Enable TSS1 SnG Mod"),
-      "",
-    },
-    {
-      "dp_toyota_stock_lon",
-      tr("Use Stock Longitudinal Control"),
-      "",
-    },
-  };
 
-  QWidget *label = nullptr;
-  bool has_toggle = false;
-
-  for (auto &[param, title, desc] : toggle_defs) {
-    if (param.isEmpty()) {
-      label = new LabelControl(title, "");
-      addItem(label);
-      continue;
-    }
-
-    has_toggle = true;
-    auto toggle = new ParamControl(param, title, desc, "", this);
-    bool locked = params.getBool((param + "Lock").toStdString());
-    toggle->setEnabled(!locked);
-    addItem(toggle);
-    toggles[param.toStdString()] = toggle;
-  }
-
-  // If no toggles were added, hide the label
-  if (!has_toggle && label) {
-    label->hide();
-  }
-}
-
-void DPPanel::add_vag_toggles() {
-  std::vector<std::tuple<QString, QString, QString>> toggle_defs{
-    {
-      "",
-      QString::fromUtf8("🐉 ") + tr("VW / Audi / Skoda"),
-      "",
-    },
-    {
-      "dp_vag_a0_sng",
-      tr("Enable MQB A0 SnG Mod"),
-      "",
-    },
-    {
-      "dp_vag_pq_steering_patch",
-      tr("PQ Steering Patch"),
-      ""
-    },
-    {
-      "dp_vag_avoid_eps_lockout",
-      tr("Avoid EPS Lockout"),
-      "",
-    },
-  };
-
-  QWidget *label = nullptr;
-  bool has_toggle = false;
-
-  for (auto &[param, title, desc] : toggle_defs) {
-    if (param.isEmpty()) {
-      label = new LabelControl(title, "");
-      addItem(label);
-      continue;
-    }
-
-    has_toggle = true;
-    auto toggle = new ParamControl(param, title, desc, "", this);
-    bool locked = params.getBool((param + "Lock").toStdString());
-    toggle->setEnabled(!locked);
-    addItem(toggle);
-    toggles[param.toStdString()] = toggle;
-  }
-
-  // If no toggles were added, hide the label
-  if (!has_toggle && label) {
-    label->hide();
-  }
-}
-
-void DPPanel::add_mazda_toggles() {
-  std::vector<std::tuple<QString, QString, QString>> toggle_defs{
-    {
-      "",
-      QString::fromUtf8("🐉 ") + tr("Mazda"),
-      "",
-    },
-  };
-
-  QWidget *label = nullptr;
-  bool has_toggle = false;
-
-  for (auto &[param, title, desc] : toggle_defs) {
-    if (param.isEmpty()) {
-      label = new LabelControl(title, "");
-      addItem(label);
-      continue;
-    }
-
-    has_toggle = true;
-    auto toggle = new ParamControl(param, title, desc, "", this);
-    bool locked = params.getBool((param + "Lock").toStdString());
-    toggle->setEnabled(!locked);
-    addItem(toggle);
-    toggles[param.toStdString()] = toggle;
-  }
-
-  // If no toggles were added, hide the label
-  if (!has_toggle && label) {
-    label->hide();
-  }
-}
 
 void DPPanel::add_lateral_toggles() {
   std::vector<std::tuple<QString, QString, QString>> toggle_defs{
     {
       "",
-      QString::fromUtf8("🐉 ") + tr("Lateral Ctrl"),
+      QString::fromUtf8("🐍 ") + tr("Lateral Ctrl"),
       "",
     },
     {
       "dp_lat_alka",
-      tr("Always-on Lane Keeping Assist (ALKA)"),
+      tr("Automatic Lane Keeping Assist (ALKA)"),
       "",
     },
     {
@@ -147,8 +20,10 @@ void DPPanel::add_lateral_toggles() {
       tr("Block lane change assist when the system detects the road edge.\nNOTE: This will show 'Car Detected in Blindspot' warning.")
     },
   };
-  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("LCA Speed:"), tr("Off = Disable LCA\n1 mph ≈ 1.2 km/h"), "", 0, 100, 5, tr(" mph"), tr("Off"));
-  lca_sec_toggle = new ParamDoubleSpinBoxControl("dp_lat_lca_auto_sec", QString::fromUtf8("　") + tr("Auto Lane Change after:"), tr("Off = Disable Auto Lane Change."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
+  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("Lane Change Assist (LCA) Speed:"), 
+    tr("Off = Disable Lane Change Assist"), 
+    "", 0, 160, 5, tr(" km/h"), tr("Off"));
+  lca_sec_toggle = new ParamDoubleSpinBoxControl("dp_lat_lca_auto_sec", QString::fromUtf8("　") + tr("Auto Lane Change Assist (LCA) after:"), tr("Off = Disable Auto Lane Change Assist."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -181,7 +56,7 @@ void DPPanel::add_longitudinal_toggles() {
   std::vector<std::tuple<QString, QString, QString>> toggle_defs{
     {
       "",
-      QString::fromUtf8("🐉 ") + tr("Longitudinal Ctrl"),
+      QString::fromUtf8("🐍 ") + tr("Longitudinal Ctrl"),
       "",
     },
     {
@@ -243,7 +118,7 @@ void DPPanel::add_ui_toggles() {
   std::vector<std::tuple<QString, QString, QString>> toggle_defs{
     {
       "",
-      QString::fromUtf8("🐉 ") + tr("UI"),
+      QString::fromUtf8("🐍 ") + tr("UI"),
       "",
     },
     {
@@ -253,16 +128,13 @@ void DPPanel::add_ui_toggles() {
     },
     {
       "dp_ui_rainbow",
-      tr("Rainbow Driving Path like Tesla"),
+      tr("Rainbow Driving Path"),
       tr("Why not?"),
     },
   };
-  std::vector<QString> display_off_mode_texts{tr("Std."), tr("MAIN+"), tr("OP+"), tr("MAIN-"), tr("OP-")};
-  ButtonParamControl* display_off_mode_setting = new ButtonParamControl("dp_ui_display_mode", tr("Display Mode"),
-                                          tr("Std. - Stock behavior.\nMAIN+ - ACC MAIN on = Display ON.\nOP+ - OP enabled = Display ON.\nMAIN- - ACC MAIN on = Display OFF\nOP- - OP enabled = Display OFF."),
-                                          "",
-                                          display_off_mode_texts, 200);
-  auto hide_hud = new ParamSpinBoxControl("dp_ui_hide_hud_speed_kph", tr("Hide HUD When Moves above:"), tr("To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.\nOff = Stock Behavior\n1 km/h ≈ 0.6 mph"), "", 0, 120, 5, tr(" km/h"), tr("Off"));
+  auto hide_hud = new ParamSpinBoxControl("dp_ui_hide_hud_speed_kph", tr("Hide HUD When Moves above:"), 
+    tr("To prevent screen burn-in, hide Speed, MAX Speed, and Steering/DM Icons when the car moves.\nOff = Stock Behavior"), 
+    "", 0, 120, 5, tr(" km/h"), tr("Off"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -271,8 +143,6 @@ void DPPanel::add_ui_toggles() {
     if (param.isEmpty()) {
       label = new LabelControl(title, "");
       addItem(label);
-      addItem(display_off_mode_setting);
-      has_toggle = true;
       addItem(hide_hud);
       has_toggle = true;
       continue;
@@ -299,18 +169,13 @@ void DPPanel::add_device_toggles() {
   std::vector<std::tuple<QString, QString, QString>> toggle_defs{
     {
       "",
-      QString::fromUtf8("🐉 ") + tr("Device"),
+      QString::fromUtf8("🐍 ") + tr("Device"),
       "",
     },
     {
       "dp_device_is_rhd",
       tr("Enable Right-Hand Drive Mode"),
       tr("Allow openpilot to obey right-hand traffic conventions on right driver seat."),
-    },
-    {
-      "dp_device_monitoring_disabled",
-      tr("Disable Driver Monitoring"),
-      "",
     },
     {
       "dp_device_beep",
@@ -326,14 +191,6 @@ void DPPanel::add_device_toggles() {
 
   auto auto_shutdown_toggle = new ParamSpinBoxControl("dp_device_auto_shutdown_in", tr("Auto Shutdown In:"), tr("0 mins = Immediately"), "", -5, 300, 5, tr(" mins"), tr("Off"));
 
-  std::vector<QString> dashy_mode_texts{tr("Off"), tr("Lite"), tr("Full")};
-  ButtonParamControl* dashy_mode_settings = new ButtonParamControl("dp_dev_dashy", tr("dashy"),
-                                          tr("dashy - dragonpilot's all-in-one system hub for you.\n\nVisit http://<device_ip>:5088 to access.\n\nOff - Turn off dashy completely.\nLite: File Manager only.\nFull: File Manager + Live Stream."),
-                                          "",
-                                          dashy_mode_texts);
-
-
-  auto delay_loggerd_toggle = new ParamSpinBoxControl("dp_dev_delay_loggerd", tr("Delay Starting Loggerd for:"), tr("Delays the startup of loggerd and its related processes when the device goes on-road.\nThis prevents the initial moments of a drive from being recorded, protecting location privacy at the start of a trip."), "", 0, 300, 5, tr(" secs"), tr("Off"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -344,10 +201,6 @@ void DPPanel::add_device_toggles() {
       label = new LabelControl(title, "");
       addItem(label);
       addItem(auto_shutdown_toggle);
-      has_toggle = true;
-      addItem(dashy_mode_settings);
-      has_toggle = true;
-      addItem(delay_loggerd_toggle);
       has_toggle = true;
       continue;
     }
@@ -374,6 +227,7 @@ void DPPanel::add_device_toggles() {
 }
 
 DPPanel::DPPanel(SettingsWindow *parent) : ListWidget(parent) {
+  is_metric = params.getBool("IsMetric");
   auto cp_bytes = params.get("CarParamsPersistent");
   if (!cp_bytes.empty()) {
     AlignedBuffer aligned_buf;
@@ -384,25 +238,11 @@ DPPanel::DPPanel(SettingsWindow *parent) : ListWidget(parent) {
     vehicle_has_radar_unavailable = CP.getRadarUnavailable();
   }
 
-  if (brand == "toyota") {
-    add_toyota_toggles();
-  } else if (brand == "volkswagen") {
-    add_vag_toggles();
-  } else if (brand == "mazda") {
-    add_mazda_toggles();
-  }
   add_lateral_toggles();
   add_longitudinal_toggles();
   add_ui_toggles();
   add_device_toggles();
 
-  auto resetBtn = new ButtonControl(tr("Reset dragonpilot settings"), tr("RESET"));
-  connect(resetBtn, &ButtonControl::clicked, [&]() {
-    if (ConfirmationDialog::confirm(tr("Are you sure you want to reset all settings?"), tr("Reset"), this)) {
-      params.putBool("dp_device_reset_conf", true);
-    }
-  });
-  addItem(resetBtn);
 
   fs_watch = new ParamWatcher(this);
   QObject::connect(fs_watch, &ParamWatcher::paramChanged, [=](const QString &param_name, const QString &param_value) {

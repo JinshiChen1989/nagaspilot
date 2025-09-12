@@ -11,19 +11,6 @@ DeveloperPanel::DeveloperPanel(SettingsWindow *parent) : ListWidget(parent) {
   addItem(new SshToggle());
   addItem(new SshControl());
 
-  joystickToggle = new ParamControl("JoystickDebugMode", tr("Joystick Debug Mode"), "", "");
-  QObject::connect(joystickToggle, &ParamControl::toggleFlipped, [=](bool state) {
-    params.putBool("LongitudinalManeuverMode", false);
-    longManeuverToggle->refresh();
-  });
-  addItem(joystickToggle);
-
-  longManeuverToggle = new ParamControl("LongitudinalManeuverMode", tr("Longitudinal Maneuver Mode"), "", "");
-  QObject::connect(longManeuverToggle, &ParamControl::toggleFlipped, [=](bool state) {
-    params.putBool("JoystickDebugMode", false);
-    joystickToggle->refresh();
-  });
-  addItem(longManeuverToggle);
 
   experimentalLongitudinalToggle = new ParamControl(
     "AlphaLongitudinalEnabled",
@@ -95,9 +82,7 @@ void DeveloperPanel::updateToggles(bool _offroad) {
      */
     experimentalLongitudinalToggle->setVisible(CP.getAlphaLongitudinalAvailable() && !is_release);
 
-    longManeuverToggle->setEnabled(hasLongitudinalControl(CP) && _offroad);
   } else {
-    longManeuverToggle->setEnabled(false);
     experimentalLongitudinalToggle->setVisible(false);
   }
   experimentalLongitudinalToggle->refresh();

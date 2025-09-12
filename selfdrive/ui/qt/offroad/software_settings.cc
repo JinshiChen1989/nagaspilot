@@ -30,7 +30,7 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : ListWidget(parent) {
   addItem(versionLbl);
 
   // on/off road mode switch
-  onOffRoadBtn = new ButtonControl(tr("Onroad/Offroad Mode"), tr("Go Offroad"));
+  onOffRoadBtn = new ButtonControl(tr("Onroad/Offroad Mode"), tr("Offroad"));
   connect(onOffRoadBtn, &ButtonControl::clicked, [&]() {
     if (ConfirmationDialog::confirm(tr("Are you sure you want to switch mode?"), tr("CONFIRM"), this)) {
       bool val = params.getBool("dp_device_go_off_road");
@@ -86,14 +86,7 @@ SoftwarePanel::SoftwarePanel(QWidget* parent) : ListWidget(parent) {
   }
   */
 
-  // uninstall button
-  auto uninstallBtn = new ButtonControl(tr("Uninstall %1").arg(getBrand()), tr("UNINSTALL"));
-  connect(uninstallBtn, &ButtonControl::clicked, [&]() {
-    if (ConfirmationDialog::confirm(tr("Are you sure you want to uninstall?"), tr("Uninstall"), this)) {
-      params.putBool("DoUninstall", true);
-    }
-  });
-  addItem(uninstallBtn);
+  // uninstall button removed for nagaspilot
 
   fs_watch = new ParamWatcher(this);
   QObject::connect(fs_watch, &ParamWatcher::paramChanged, [=](const QString &param_name, const QString &param_value) {
@@ -133,9 +126,9 @@ void SoftwarePanel::updateLabels() {
 
   // on/off road text change
   if (params.getBool("dp_device_go_off_road")) {
-    onOffRoadBtn->setText(tr("Go Onroad"));
+    onOffRoadBtn->setText(tr("Onroad"));
   } else {
-    onOffRoadBtn->setText(tr("Go Offroad"));
+    onOffRoadBtn->setText(tr("Offroad"));
   }
 
   // download update

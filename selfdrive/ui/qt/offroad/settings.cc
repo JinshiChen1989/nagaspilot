@@ -14,7 +14,6 @@
 #include "selfdrive/ui/qt/widgets/prime.h"
 #include "selfdrive/ui/qt/widgets/scrollview.h"
 #include "selfdrive/ui/qt/offroad/developer_panel.h"
-#include "selfdrive/ui/qt/offroad/firehose.h"
 #include "selfdrive/ui/qt/offroad/dp_panel.h"
 #include "selfdrive/ui/qt/offroad/model_selector.h"
 
@@ -50,46 +49,11 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
       false,
     },
     {
-      "AlwaysOnDM",
-      tr("Always-On Driver Monitoring"),
-      tr("Enable driver monitoring even when openpilot is not engaged."),
-      "../assets/icons/monitoring.png",
-      false,
-    },
-    {
-      "RecordFront",
-      tr("Record and Upload Driver Camera"),
-      tr("Upload data from the driver facing camera and help improve the driver monitoring algorithm."),
-      "../assets/icons/monitoring.png",
-      true,
-    },
-    {
-      "RecordAudio",
-      tr("Record and Upload Microphone Audio"),
-      tr("Record and store microphone audio while driving. The audio will be included in the dashcam video in comma connect."),
-      "../assets/icons/microphone.png",
-      true,
-    },
-    {
       "IsMetric",
       tr("Use Metric System"),
       tr("Display speed in km/h instead of mph."),
       "../assets/icons/metric.png",
       false,
-    },
-    {
-      "DisableLogging",
-      tr("Disable Logging"),
-      "",
-      "../assets/offroad/icon_empty.svg",
-      true,
-    },
-    {
-      "DisableUpdates",
-      tr("Disable Updates"),
-      "",
-      "../assets/offroad/icon_empty.svg",
-      true,
     },
   };
 
@@ -106,7 +70,7 @@ TogglesPanel::TogglesPanel(SettingsWindow *parent) : ListWidget(parent) {
   QObject::connect(uiState(), &UIState::uiUpdate, this, &TogglesPanel::updateState);
   const bool lite = getenv("LITE");
   for (auto &[param, title, desc, icon, needs_restart] : toggle_defs) {
-    if ((param == "AlwaysOnDM" || param == "RecordFront" || param == "RecordAudio" || param == "RecordAudioFeedback") && lite) {
+    if ((param == "RecordAudioFeedback") && lite) {
       continue;
     }
     auto toggle = new ParamControl(param, title, desc, icon, this);
@@ -228,20 +192,9 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   addItem(new LabelControl(tr("Serial"), params.get("HardwareSerial").c_str()));
 
   const bool lite = getenv("LITE");
-  pair_device = new ButtonControl(tr("Pair Device"), tr("PAIR"),
-                                  tr("Pair your device with comma connect (connect.comma.ai) and claim your comma prime offer."));
-  connect(pair_device, &ButtonControl::clicked, [=]() {
-    PairingPopup popup(this);
-    popup.exec();
-  });
-  addItem(pair_device);
 
   // offroad-only buttons
   if (!lite) {
-  auto dcamBtn = new ButtonControl(tr("Driver Camera"), tr("PREVIEW"),
-                                   tr("Preview the driver facing camera to ensure that driver monitoring has good visibility. (vehicle must be off)"));
-  connect(dcamBtn, &ButtonControl::clicked, [=]() { emit showDriverView(); });
-  addItem(dcamBtn);
   }
   resetCalibBtn = new ButtonControl(tr("Reset Calibration"), tr("RESET"), "");
   connect(resetCalibBtn, &ButtonControl::showDescriptionEvent, this, &DevicePanel::updateCalibDescription);
@@ -265,22 +218,7 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   });
   addItem(resetCalibBtn);
 
-  auto retrainingBtn = new ButtonControl(tr("Review Training Guide"), tr("REVIEW"), tr("Review the rules, features, and limitations of openpilot"));
-  connect(retrainingBtn, &ButtonControl::clicked, [=]() {
-    if (ConfirmationDialog::confirm(tr("Are you sure you want to review the training guide?"), tr("Review"), this)) {
-      emit reviewTrainingGuide();
-    }
-  });
-  addItem(retrainingBtn);
 
-  if (Hardware::TICI()) {
-    auto regulatoryBtn = new ButtonControl(tr("Regulatory"), tr("VIEW"), "");
-    connect(regulatoryBtn, &ButtonControl::clicked, [=]() {
-      const std::string txt = util::read_file("../assets/offroad/fcc.html");
-      ConfirmationDialog::rich(QString::fromStdString(txt), this);
-    });
-    addItem(regulatoryBtn);
-  }
 
   auto translateBtn = new ButtonControl(tr("Change Language"), tr("CHANGE"), "");
   connect(translateBtn, &ButtonControl::clicked, [=]() {
@@ -295,12 +233,11 @@ DevicePanel::DevicePanel(SettingsWindow *parent) : ListWidget(parent) {
   });
   addItem(translateBtn);
 
-  QObject::connect(uiState()->prime_state, &PrimeState::changed, [this] (PrimeState::Type type) {
-    pair_device->setVisible(type == PrimeState::PRIME_TYPE_UNPAIRED);
+  QObject::connect(uiState()->prime_state, &PrimeState::changed, [] (PrimeState::Type type) {
   });
   // QObject::connect(uiState(), &UIState::offroadTransition, [=](bool offroad) {
   //   for (auto btn : findChildren<ButtonControl *>()) {
-  //     if (btn != pair_device && btn != resetCalibBtn) {
+  //     if (btn != resetCalibBtn) {
   //       btn->setEnabled(offroad);
   //     }
   //   }
@@ -491,11 +428,10 @@ SettingsWindow::SettingsWindow(QWidget *parent) : QFrame(parent) {
   QList<QPair<QString, QWidget *>> panels = {
     {tr("Device"), device},
     {tr("Network"), networking},
-    {tr("Toggles"), toggles},
+    {tr("Option(1)"), toggles},
+    {tr("Option(2)"), new DPPanel(this)},
     {tr("Software"), new SoftwarePanel(this)},
-    {tr("Firehose"), new FirehosePanel(this)},
     {tr("Developer"), new DeveloperPanel(this)},
-    {"DP", new DPPanel(this)},
   };
 
   nav_btns = new QButtonGroup(this);

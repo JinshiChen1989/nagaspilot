@@ -55,7 +55,6 @@ private slots:
 
 private:
   Params params;
-  ButtonControl *pair_device;
   ButtonControl *resetCalibBtn;
 };
 
@@ -103,5 +102,3 @@ private:
   ParamWatcher *fs_watch;
 };
 
-// Forward declaration
-class FirehosePanel;

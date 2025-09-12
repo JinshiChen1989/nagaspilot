@@ -1,70 +1,138 @@
 #pragma once
 
+#include <QFrame>
 #include <QLabel>
-#include <QStackedWidget>
+#include <QTimer>
+#include <QMouseEvent>
 #include <QVBoxLayout>
+#include <QGridLayout>
 #include <QWidget>
 
+#include "common/params.h"
 #include "selfdrive/ui/qt/widgets/input.h"
 
-// pairing QR code
-class PairingQRWidget : public QWidget {
+// Drive stats widget using sunnypilot's proven approach
+class DriveStats : public QFrame {
   Q_OBJECT
 
 public:
-  explicit PairingQRWidget(QWidget* parent = 0);
-  void paintEvent(QPaintEvent*) override;
+  explicit DriveStats(QWidget* parent = nullptr);
+
+protected:
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseReleaseEvent(QMouseEvent *event) override;
 
 private:
-  QPixmap img;
-  QTimer *timer;
-  void updateQrCode(const QString &text);
   void showEvent(QShowEvent *event) override;
-  void hideEvent(QHideEvent *event) override;
+  void updateStats();
+  void switchTripMode();
+  void resetCurrentTrip();
+  void loadDailyStats();
+  void saveDailyStats();
+  void updateWeeklyRollingStats();
+  inline QString getDistanceUnit() const { return metric_ ? tr("KM") : tr("Miles"); }
+
+  bool metric_;
+  Params params_;
+  QTimer *refresh_timer_;
+  QTimer *long_press_timer_;
+  
+  // Trip mode management
+  enum TripMode { TRIP_A, TRIP_B };
+  TripMode current_trip_mode_;
+  QLabel *trip_mode_label_;
+  
+  struct StatsLabels {
+    QLabel *routes, *distance, *distance_unit, *hours, *engagement;
+  } all_, week_, current_;
+
+  // Session tracking for week and current trip stats
+  float session_start_distance_;
+  float session_start_time_;
+  QString session_date_;
+  
+  // Trip A/B tracking
+  struct TripData {
+    float start_distance;
+    float start_time;
+    bool active;
+  } trip_a_, trip_b_;
+  
+  // Daily rolling window for past week (7 days)
+  struct DailyStats {
+    float distance;
+    float time;
+    float engaged_time;  // OpenPilot engaged time for this day
+    int drives;
+    QString date;
+  };
+  QList<DailyStats> daily_history_;
+  
+  // Touch handling
+  QPoint press_pos_;
+  bool long_press_triggered_;
 
 private slots:
-  void refresh();
+  void refreshStats();
+  void onLongPressTimeout();
 };
 
-
-// pairing popup widget
-class PairingPopup : public DialogBase {
-  Q_OBJECT
-
-public:
-  explicit PairingPopup(QWidget* parent);
-  int exec() override;
-};
-
-
-// widget for paired users with prime
-class PrimeUserWidget : public QFrame {
-  Q_OBJECT
-
-public:
-  explicit PrimeUserWidget(QWidget* parent = 0);
-};
-
-
-// widget for paired users without prime
-class PrimeAdWidget : public QFrame {
+// Separate widgets for compatibility with home.cc
+class PrimeUserWidget : public DriveStats {
   Q_OBJECT
 public:
-  explicit PrimeAdWidget(QWidget* parent = 0);
+  explicit PrimeUserWidget(QWidget* parent = nullptr) : DriveStats(parent) {}
 };
 
+class PrimeAdWidget : public DriveStats {
+  Q_OBJECT  
+public:
+  explicit PrimeAdWidget(QWidget* parent = nullptr) : DriveStats(parent) {}
+};
 
-// container widget
+// Information panel for right side - clickable to open settings
 class SetupWidget : public QFrame {
   Q_OBJECT
-
 public:
-  explicit SetupWidget(QWidget* parent = 0);
+  explicit SetupWidget(QWidget* parent = nullptr);
 
 signals:
   void openSettings(int index = 0, const QString &param = "");
 
+protected:
+  void mousePressEvent(QMouseEvent *event) override;
+  void enterEvent(QEvent *event) override;
+  void leaveEvent(QEvent *event) override;
+
+private slots:
+  void showInfoDialog();
+
 private:
-  PairingPopup *popup;
-  QStackedWidget *mainLayout;
+  QWidget *main_layout;
+  bool hovered = false;
+};
+
+// NAGASPILOT Information Dialog
+class NagaspilotInfoDialog : public DialogBase {
+  Q_OBJECT
+public:
+  explicit NagaspilotInfoDialog(QWidget* parent = nullptr);
+
+protected:
+  void mousePressEvent(QMouseEvent *event) override;
+};
+
+// Dummy classes for compatibility
+class PairingPopup : public QWidget {
+  Q_OBJECT
+public:
+  explicit PairingPopup(QWidget* parent = nullptr) : QWidget(parent) {}
+  int exec() { return 0; }
+  void reject() {}
+};
+
+class PairingQRWidget : public QWidget {
+  Q_OBJECT
+public:
+  explicit PairingQRWidget(QWidget* parent = nullptr) : QWidget(parent) {}
 };

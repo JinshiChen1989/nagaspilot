@@ -1,5 +1,6 @@
 #include "selfdrive/ui/qt/home.h"
 
+#include <QDateTime>
 #include <QHBoxLayout>
 #include <QMouseEvent>
 #include <QStackedWidget>
@@ -110,7 +111,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   header_layout->setSpacing(16);
 
   update_notif = new QPushButton(tr("UPDATE"));
-  update_notif->setVisible(false);
+  update_notif->setVisible(false);  // Suppressed - no version updates shown
   update_notif->setStyleSheet("background-color: #364DEF;");
   QObject::connect(update_notif, &QPushButton::clicked, [=]() { center_layout->setCurrentIndex(1); });
   header_layout->addWidget(update_notif, 0, Qt::AlignHCenter | Qt::AlignLeft);
@@ -118,10 +119,10 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   alert_notif = new QPushButton();
   alert_notif->setVisible(false);
   alert_notif->setStyleSheet("background-color: #E22C2C;");
-  QObject::connect(alert_notif, &QPushButton::clicked, [=] { center_layout->setCurrentIndex(2); });
+  QObject::connect(alert_notif, &QPushButton::clicked, [=] { center_layout->setCurrentIndex(1); });  // Index 1 for alerts
   header_layout->addWidget(alert_notif, 0, Qt::AlignHCenter | Qt::AlignLeft);
 
-  version = new ElidedLabel();
+  version = new ElidedLabel();  // Now displays GPS time
   header_layout->addWidget(version, 0, Qt::AlignHCenter | Qt::AlignRight);
 
   main_layout->addLayout(header_layout);
@@ -177,9 +178,9 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
   center_layout->addWidget(home_widget);
 
   // add update & alerts widgets
-  update_widget = new UpdateAlert();
+  update_widget = new UpdateAlert();  // Keep for compatibility but don't display
   QObject::connect(update_widget, &UpdateAlert::dismiss, [=]() { center_layout->setCurrentIndex(0); });
-  center_layout->addWidget(update_widget);
+  // center_layout->addWidget(update_widget);  // Removed from display
   alerts_widget = new OffroadAlert();
   QObject::connect(alerts_widget, &OffroadAlert::dismiss, [=]() { center_layout->setCurrentIndex(0); });
   center_layout->addWidget(alerts_widget);
@@ -211,7 +212,7 @@ OffroadHome::OffroadHome(QWidget* parent) : QFrame(parent) {
 
 void OffroadHome::showEvent(QShowEvent *event) {
   refresh();
-  timer->start(10 * 1000);
+  timer->start(1000);  // Update every 1 second for time display
 }
 
 void OffroadHome::hideEvent(QHideEvent *event) {
@@ -219,23 +220,23 @@ void OffroadHome::hideEvent(QHideEvent *event) {
 }
 
 void OffroadHome::refresh() {
-  version->setText(getBrand() + " " +  QString::fromStdString(params.get("UpdaterCurrentDescription")));
+  // Display local time instead of version (following reference implementation)
+  QDateTime localTime = QDateTime::currentDateTime();
+  version->setText(localTime.toString("hh:mm:ss"));
 
-  bool updateAvailable = update_widget->refresh();
+  // Suppress version-related updates completely
   int alerts = alerts_widget->refresh();
 
-  // pop-up new notification
+  // pop-up new notification (only for non-version alerts)
   int idx = center_layout->currentIndex();
-  if (!updateAvailable && !alerts) {
-    idx = 0;
-  } else if (updateAvailable && (!update_notif->isVisible() || (!alerts && idx == 2))) {
-    idx = 1;
-  } else if (alerts && (!alert_notif->isVisible() || (!updateAvailable && idx == 1))) {
-    idx = 2;
+  if (!alerts) {
+    idx = 0;  // Home widget
+  } else if (alerts && (!alert_notif->isVisible() || idx != 1)) {
+    idx = 1;  // Alerts widget (index 1 since update widget removed)
   }
   center_layout->setCurrentIndex(idx);
 
-  update_notif->setVisible(updateAvailable);
+  update_notif->setVisible(false);  // Always hidden
   alert_notif->setVisible(alerts);
   if (alerts) {
     alert_notif->setText(QString::number(alerts) + (alerts > 1 ? tr(" ALERTS") : tr(" ALERT")));

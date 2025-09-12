@@ -15,13 +15,11 @@ private:
   ParamWatcher *fs_watch;
   std::map<std::string, ParamControl*> toggles;
   QString brand;
+  bool is_metric;
   bool is_onroad = false;
   bool vehicle_has_long_ctrl;
   bool vehicle_has_radar_unavailable;
 
-  void add_toyota_toggles();
-  void add_vag_toggles();
-  void add_mazda_toggles();
   void add_lateral_toggles();
   void add_longitudinal_toggles();
   void add_ui_toggles();
