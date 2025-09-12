@@ -1,0 +1,105 @@
+# NagasPilot Enhanced DTSA Configuration for BrownPanda Vehicles
+# This file contains configurable parameters for Dynamic Torque Steering Adjustment
+# Each car model can have different default settings that users can enable/override
+
+# Default configuration for each supported model
+default_dtsa_params:
+  BYD_ATTO3:
+    # Base vehicle parameters (from EXO_COMM2 BYD data - using BYD SONG PLUS EV as closest match)
+    enabled: false                    # Manual enable required per car
+    lat_accel_factor: 2.0            # From EXO_COMM2: BYD SONG PLUS EV 21-22 = [2.0, 2.5, 0.10]
+    max_lat_accel: 2.5               # From EXO_COMM2: MAX_LAT_ACCEL_MEASURED = 2.5
+    friction: 0.10                   # From EXO_COMM2: BYD SONG PLUS EV friction = 0.10
+    
+    # Steering control limits
+    steer_max: 240                   # Maximum steering torque (Nm)
+    steer_delta_up: 15               # Steering rate up (Nm/s)
+    steer_delta_down: 22             # Steering rate down (Nm/s)
+    
+    # Enhanced DTSA features (extracted from BYD implementation)
+    enable_dsad: false               # Dynamic Steer Actuator Delay
+    enable_lateral_jerk: false       # Lateral jerk compensation
+    friction_factor: 0.4             # Jerk friction factor
+    accel_friction_factor: 0.7       # Acceleration friction factor
+    
+    # Advanced tuning parameters
+    dsad_filter_tau: 0.5             # DSAD filter time constant
+    dsad_min_delay: 0.02             # Minimum DSAD delay
+    dsad_max_delay: 0.40             # Maximum DSAD delay
+    dsad_torque_threshold: 0.2       # Torque threshold for DSAD
+    
+    # Speed-dependent scaling
+    speed_scaling_points: [0, 30, 60, 100]    # km/h
+    torque_scaling_factors: [1.0, 0.95, 0.85, 0.7]
+    
+    # Lateral jerk compensation parameters
+    friction_look_ahead_time: [1.4, 2.0]      # Look ahead time (seconds)
+    friction_look_ahead_speed: [9.0, 30.0]    # Corresponding speeds (m/s)
+
+  BYD_DOLPHIN:
+    # Base vehicle parameters (from EXO_COMM2 BYD data - using BYD QIN PLUS DMI as closest compact match)
+    enabled: false                    # Manual enable required per car
+    lat_accel_factor: 1.75           # From EXO_COMM2: BYD QIN PLUS DMI = [1.75, 2.5, 0.05] - compact car
+    max_lat_accel: 2.5               # From EXO_COMM2: MAX_LAT_ACCEL_MEASURED = 2.5
+    friction: 0.05                   # From EXO_COMM2: BYD QIN PLUS DMI friction = 0.05 (lower for compact)                   
+    
+    # Steering control limits  
+    steer_max: 210                   # Lower max torque for comfort
+    steer_delta_up: 18               
+    steer_delta_down: 25             
+    
+    # Enhanced DTSA features
+    enable_dsad: false               
+    enable_lateral_jerk: false       
+    friction_factor: 0.4             
+    accel_friction_factor: 0.7       
+    
+    # Advanced tuning parameters
+    dsad_filter_tau: 0.5             
+    dsad_min_delay: 0.02             
+    dsad_max_delay: 0.40             
+    dsad_torque_threshold: 0.2       
+    
+    # Speed-dependent scaling (more conservative for comfort)
+    speed_scaling_points: [0, 25, 50, 85]     
+    torque_scaling_factors: [1.0, 0.95, 0.80, 0.65]
+    
+    # Lateral jerk compensation parameters
+    friction_look_ahead_time: [1.4, 2.0]      
+    friction_look_ahead_speed: [9.0, 30.0]    
+
+  # DEEPAL_S05: Enhanced DTSA not supported - uses standard angle control
+  # DEEPAL vehicles use different control architecture and don't need these features    
+
+# Parameter validation ranges for safety
+validation_ranges:
+  lat_accel_factor: [1.0, 3.5]      # Safe range for lateral acceleration factor
+  max_lat_accel: [1.5, 4.0]         # Safe range for max lateral acceleration  
+  friction: [0.01, 0.30]            # Safe range for friction coefficient
+  steer_max: [100, 400]             # Safe range for max steering torque
+  steer_delta_up: [5, 50]           # Safe range for steering rate up
+  steer_delta_down: [5, 50]         # Safe range for steering rate down
+  friction_factor: [0.1, 1.0]       # Safe range for friction factor
+  accel_friction_factor: [0.1, 2.0] # Safe range for accel friction factor
+
+# Feature compatibility matrix
+feature_compatibility:
+  enhanced_dtsa_supported:
+    - BYD_ATTO3
+    - BYD_DOLPHIN
+  torque_control:
+    - BYD_ATTO3
+    - BYD_DOLPHIN
+  angle_control:
+    - DEEPAL_S05
+  dsad_supported:
+    - BYD_ATTO3
+    - BYD_DOLPHIN
+  lateral_jerk_supported:
+    - BYD_ATTO3
+    - BYD_DOLPHIN
+
+# Configuration metadata
+config_version: "1.0.0"
+last_updated: "2025-09-10"
+description: "Enhanced DTSA configuration with BYD-extracted features for NagasPilot BrownPanda vehicles"
