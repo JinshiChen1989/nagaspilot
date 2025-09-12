@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>op_model_adapter</name>
+  <version>0.0.1</version>
+  <description>Adapter node to publish ModelAction from existing modelV2 (cereal) into ROS 2 using rclpy.</description>
+  <maintainer email="dev@nagasware">nagasware</maintainer>
+  <license>BSD-3-Clause</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>op_core_msgs</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+

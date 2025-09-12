@@ -1,0 +1,6 @@
+float32 desired_curvature
+float32 desired_acceleration
+bool should_stop
+uint8 lane_change_state
+uint8 lane_change_direction
+
