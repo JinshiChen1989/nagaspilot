@@ -50,6 +50,15 @@ class VehicleModelCollector:
         {"prefix": "AUDI_", "group": "Audi"},
         {"prefix": "SKODA_", "group": "Skoda"},
         {"prefix": "SEAT_", "group": "Seat"}
+      ],
+      "brownpanda": [
+        {"prefix": "BYD_", "group": "BYD"},
+        {"prefix": "DENZA_", "group": "DENZA"},
+        {"prefix": "MG_", "group": "MG"},
+        {"prefix": "IM_", "group": "IM"},
+        {"prefix": "AION_", "group": "AION"},
+        {"prefix": "DEEPAL_", "group": "DEEPAL"},
+        {"prefix": "GWM_", "group": "GWM"}
       ]
     }
 
@@ -98,6 +107,7 @@ class VehicleModelCollector:
       if brand in self.exclude_brands:
         continue
 
+
       module_name = f"{self.base_package}.{brand}.values"
       try:
         module = importlib.import_module(module_name)
@@ -123,9 +133,12 @@ class VehicleModelCollector:
                   grouped_models[group_info["group"]] = []
                 grouped_models[group_info["group"]].extend(moved_models)
 
-          # Add remaining models to the respective brand
+          # Add remaining models to the brand group (only if there are models left after prefix grouping)
           if models:
-            grouped_models[brand] = models
+            formatted_brand = self.format_group_name(brand)
+            if formatted_brand not in grouped_models:
+              grouped_models[formatted_brand] = []
+            grouped_models[formatted_brand].extend(models)
       except ModuleNotFoundError:
         pass
 
@@ -138,18 +151,6 @@ class VehicleModelCollector:
 
     return output
 
-  # def save_to_params(self, output=None):
-  #   """Save the collected model list to Params"""
-  #   if output is None:
-  #     output = self.collect_models()
-  #   Params().put("dp_device_model_list", json.dumps(output))
-  #   return output
-  #
-  # def run(self):
-  #   """Collect models and save to params"""
-  #   models = self.collect_models()
-  #   self.save_to_params(models)
-  #   return models
 
   def get_json(self):
     return self.collect_models()

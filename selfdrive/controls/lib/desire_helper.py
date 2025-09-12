@@ -40,7 +40,7 @@ class DesireHelper:
     self.keep_pulse_timer = 0.0
     self.prev_one_blinker = False
     self.desire = log.Desire.none
-    self.dp_lat_lca_speed = float(dp_lat_lca_speed * CV.MPH_TO_MS)
+    self.dp_lat_lca_speed = float(dp_lat_lca_speed * CV.KPH_TO_MS)
     self.dp_lat_lca_auto_sec = dp_lat_lca_auto_sec
     self.dp_lat_lca_auto_sec_start = 0.
 

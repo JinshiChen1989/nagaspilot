@@ -123,6 +123,7 @@ procs = [
   PythonProcess("webjoystick", "tools.bodyteleop.web", notcar),
   PythonProcess("joystick", "tools.joystick.joystick_control", and_(joystick, iscar)),
   PythonProcess("dashy", "dragonpilot.dashy.backend.server", dashy),
+  PythonProcess("np_trip_controller", "nagaspilot.selfdrive.controls.lib.np_trip_controller", always_run),
 ]
 
 managed_processes = {p.name: p for p in procs}

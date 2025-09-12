@@ -122,9 +122,9 @@ class TestParams:
     assert self.params.get("LiveParameters", return_default=True) is None
 
   def test_params_get_type(self):
-    # json
-    self.params.put("ApiCache_FirehoseStats", {"a": 0})
-    assert self.params.get("ApiCache_FirehoseStats") == {"a": 0}
+    # json (using generic test parameter)
+    self.params.put("AthenadUploadQueue", {"a": 0})
+    assert self.params.get("AthenadUploadQueue") == {"a": 0}
 
     # int
     self.params.put("BootCount", 1441)

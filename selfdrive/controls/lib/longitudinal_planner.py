@@ -32,7 +32,6 @@ class DPFlags:
   ACM = 1
   ACM_DOWNHILL = 2 ** 1
   AEM = 2 ** 2
-  pass
 
 def get_max_accel(v_ego):
   return np.interp(v_ego, A_CRUISE_MAX_BP, A_CRUISE_MAX_VALS)
@@ -182,10 +181,6 @@ class LongitudinalPlanner:
 
     # Prevent divergence, smooth in current v_ego
     self.v_desired_filter.x = max(0.0, self.v_desired_filter.update(v_ego))
-    # AEM - move to top so it can access them
-    # x, v, a, j, throttle_prob = self.parse_model(sm['modelV2'])
-    # # Don't clip at low speeds since throttle_prob doesn't account for creep
-    # self.allow_throttle = throttle_prob > ALLOW_THROTTLE_THRESHOLD or v_ego <= MIN_ALLOW_THROTTLE_SPEED
 
     if not self.allow_throttle:
       clipped_accel_coast = max(accel_coast, accel_clip[0])

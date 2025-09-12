@@ -161,6 +161,7 @@ class DriverMonitoring:
     self.threshold_prompt = self.settings._DISTRACTED_PROMPT_TIME_TILL_TERMINAL / self.settings._DISTRACTED_TIME
 
     self.params = Params()
+    self.monitoring_disabled = self.params.get_bool("dp_device_monitoring_disabled")
     self.too_distracted = self.params.get_bool("DriverTooDistracted")
 
     self._reset_awareness()
@@ -380,12 +381,23 @@ class DriverMonitoring:
   def get_state_packet(self, valid=True):
     # build driverMonitoringState packet
     dat = messaging.new_message('driverMonitoringState', valid=valid)
+    
+    # When monitoring is disabled, always report good condition
+    if self.monitoring_disabled:
+      awareness_status = 1.0
+      events_to_send = []
+      is_distracted = False
+    else:
+      awareness_status = self.awareness
+      events_to_send = self.current_events.to_msg()
+      is_distracted = self.driver_distracted
+    
     dat.driverMonitoringState = {
-      "events": self.current_events.to_msg(),
+      "events": events_to_send,
       "faceDetected": self.face_detected,
-      "isDistracted": self.driver_distracted,
+      "isDistracted": is_distracted,
       "distractedType": sum(self.distracted_types),
-      "awarenessStatus": self.awareness,
+      "awarenessStatus": awareness_status,
       "posePitchOffset": self.pose.pitch_offseter.filtered_stat.mean(),
       "posePitchValidCount": self.pose.pitch_offseter.filtered_stat.n,
       "poseYawOffset": self.pose.yaw_offseter.filtered_stat.mean(),

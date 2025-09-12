@@ -13,6 +13,7 @@ from pathlib import Path
 
 from cereal import messaging
 from cereal.messaging import PubMaster, SubMaster
+from openpilot.common.params import Params
 from msgq.visionipc import VisionIpcClient, VisionStreamType, VisionBuf
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.realtime import config_realtime_process
@@ -112,6 +113,34 @@ def fill_driver_state(msg, ds_result: DriverStateResult):
   msg.notReadyProb = [float(sigmoid(x)) for x in ds_result.not_ready_prob]
 
 
+def get_dummy_driverstate_packet(frame_id: int, location_ts: int):
+  """Create dummy driver state packet when monitoring is disabled"""
+  ds = messaging.new_message('driverStateV2')
+  ds.logMonoTime = location_ts
+  ds.driverStateV2.frameId = frame_id
+  ds.driverStateV2.modelExecutionTime = 0.0
+  ds.driverStateV2.gpuExecutionTime = 0.0  
+  ds.driverStateV2.poorVisionProb = 0.0
+  ds.driverStateV2.wheelOnRightProb = 0.0
+  ds.driverStateV2.rawPredictions = b''
+  
+  # Fill with default "good" driver state
+  for driver_data in [ds.driverStateV2.leftDriverData, ds.driverStateV2.rightDriverData]:
+    driver_data.faceOrientation = [0.0, 0.0, 0.0]
+    driver_data.facePosition = [0.0, 0.0, 0.0] 
+    driver_data.faceOrientationStd = [0.0, 0.0, 0.0]
+    driver_data.facePositionStd = [0.0, 0.0, 0.0]
+    driver_data.faceProb = 1.0  # Always detect face
+    driver_data.leftEyeProb = 1.0  # Eyes always open
+    driver_data.rightEyeProb = 1.0
+    driver_data.leftBlinkProb = 0.0  # Never blinking
+    driver_data.rightBlinkProb = 0.0
+    driver_data.sunglassesProb = 0.0
+    driver_data.occludedProb = 0.0
+    driver_data.readyProb = [1.0, 1.0, 1.0, 1.0]
+    
+  return ds
+
 def get_driverstate_packet(model_output: np.ndarray, frame_id: int, location_ts: int, execution_time: float, gpu_execution_time: float):
   model_result = ctypes.cast(model_output.ctypes.data, ctypes.POINTER(DMonitoringModelResult)).contents
   msg = messaging.new_message('driverStateV2', valid=True)
@@ -143,13 +172,29 @@ def main():
 
   sm = SubMaster(["liveCalibration"])
   pm = PubMaster(["driverStateV2"])
+  params = Params()
 
   calib = np.zeros(CALIB_LEN, dtype=np.float32)
   model_transform = None
+  
+  # Check monitoring disabled parameter periodically
+  frame_count = 0
+  monitoring_disabled = params.get_bool("dp_device_monitoring_disabled")
 
   while True:
     buf = vipc_client.recv()
     if buf is None:
+      continue
+
+    # Check monitoring disabled parameter every 100 frames (~5 seconds at 20Hz)
+    frame_count += 1
+    if frame_count % 100 == 0:
+      monitoring_disabled = params.get_bool("dp_device_monitoring_disabled")
+
+    # If monitoring is disabled, send dummy packet and skip expensive model inference
+    if monitoring_disabled:
+      pm.send("driverStateV2", get_dummy_driverstate_packet(vipc_client.frame_id, vipc_client.timestamp_sof))
+      time.sleep(0.05)  # ~20Hz rate
       continue
 
     if model_transform is None:

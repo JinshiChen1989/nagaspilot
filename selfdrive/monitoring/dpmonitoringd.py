@@ -35,6 +35,8 @@ class SimpleDriverMonitoring:
     self.current_events = []
 
     if self.monitoring_disabled:
+      # When monitoring is disabled, always maintain full awareness
+      self.awareness = 1.0
       return
 
     # If not engaged, reset awareness and return
