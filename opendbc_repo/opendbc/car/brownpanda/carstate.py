@@ -253,14 +253,14 @@ class CarState(CarStateBase):
     ret.parkingBrake = bool(cp.vl["0x063_carState"]["PARKING_BRAKE"])           # Parking brake engaged
     ret.genericToggle = bool(cp.vl["0x063_carState"]["RDY_DRIVE"])              # Vehicle ready to drive
 
-    # Blind spot
-    ret.blindSpotLeft = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FL"]) or bool(cp.vl["0x063_carState"]["BLIND_SPOT_RL"])
-    ret.blindSpotRight = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FR"]) or bool(cp.vl["0x063_carState"]["BLIND_SPOT_RR"])
+    # Blind spot detection (using only adasState sensors)
+    ret.blindSpotLeft = (bool(cp.vl["_0x6E4_adasState"]["bsdFrontLeft"]) or bool(cp.vl["_0x6E4_adasState"]["bsdRearLeft"]))
+    ret.blindSpotRight = (bool(cp.vl["_0x6E4_adasState"]["bsdFrontRight"]) or bool(cp.vl["_0x6E4_adasState"]["bsdRearRight"]))
 
     # Lead detection (camera-based)
-    ret.radarState.leadOne.status = bool(cp.vl["0x066_adasState"]["LEAD_CONF"] > 50)  # High confidence threshold
-    ret.radarState.leadOne.dRel = cp.vl["0x066_adasState"]["LEAD_DIST_X"]              # Distance ahead (m)
-    ret.radarState.leadOne.yRel = cp.vl["0x066_adasState"]["LEAD_DIST_Y"]              # Lateral offset (m)
+    ret.radarState.leadOne.status = bool(cp.vl["_0x6E4_adasState"]["leadConf"] > 50)  # High confidence threshold
+    ret.radarState.leadOne.dRel = cp.vl["_0x6E4_adasState"]["leadDistX"]              # Distance ahead (m)
+    ret.radarState.leadOne.yRel = cp.vl["_0x6E4_adasState"]["leadDistY"]              # Lateral offset (m)
     ret.radarState.leadOne.vRel = 0.0                                          # No relative velocity from camera
     ret.radarState.radarUnavailable = True
 
@@ -271,9 +271,9 @@ class CarState(CarStateBase):
     _lane_width = cp.vl["0x06F_visionInfo"]["LANE_W"]               # Lane width (m)
     # Note: These could be used for enhanced lateral control and adaptive behavior
 
-    # Additional blindspot mapping for cereal compatibility
-    ret.leftBlindspot = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FL"] or cp.vl["0x063_carState"]["BLIND_SPOT_RL"])
-    ret.rightBlindspot = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FR"] or cp.vl["0x063_carState"]["BLIND_SPOT_RR"])
+    # Additional blindspot mapping for cereal compatibility (same as above)
+    ret.leftBlindspot = ret.blindSpotLeft
+    ret.rightBlindspot = ret.blindSpotRight
 
     # Process button events for cruise control and driver assistance
     button_events = []
@@ -390,7 +390,7 @@ class CarState(CarStateBase):
       ("_0x6E2_carState", 100),       # Primary vehicle state (speed, gear, cruise)
       ("_0x6E3_carState2", 100),      # Extended vehicle state (doors, charging)
       ("_0x6E4_espState", 50),        # Individual wheel speed sensors
-      ("_0x6E5_adasState", 20),       # Camera-based ADAS data (lead vehicle)
+      ("_0x6E4_adasState", 20),       # Camera-based ADAS data (lead vehicle, BSD)
       ("_0x6E6_chassisState", 50),    # Stability control and chassis systems
       ("_0x6E7_powertrainState", 20), # Motor/engine and energy management
       ("_0x6E8_ImuSensor", 100),      # Inertial measurement unit data (gyro)

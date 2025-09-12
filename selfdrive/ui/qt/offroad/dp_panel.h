@@ -27,5 +27,5 @@ private:
   void updateStates();
   void showEvent(QShowEvent *event) override;
 
-  ParamDoubleSpinBoxControl* lca_sec_toggle;
+  ParamDoubleSpinBoxControl* alc_sec_toggle;
 };

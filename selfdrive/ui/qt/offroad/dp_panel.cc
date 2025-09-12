@@ -20,10 +20,10 @@ void DPPanel::add_lateral_toggles() {
       tr("Block lane change assist when the system detects the road edge.\nNOTE: This will show 'Car Detected in Blindspot' warning.")
     },
   };
-  auto lca_speed_toggle = new ParamSpinBoxControl("dp_lat_lca_speed", tr("Lane Change Assist (LCA) Speed:"), 
-    tr("Off = Disable Lane Change Assist"), 
+  auto alc_speed_toggle = new ParamSpinBoxControl("np_lat_alc_speed", tr("Advanced Lane Change (ALC) Speed:"), 
+    tr("Off = Disable Advanced Lane Change"), 
     "", 0, 160, 5, tr(" km/h"), tr("Off"));
-  lca_sec_toggle = new ParamDoubleSpinBoxControl("dp_lat_lca_auto_sec", QString::fromUtf8("　") + tr("Auto Lane Change Assist (LCA) after:"), tr("Off = Disable Auto Lane Change Assist."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
+  alc_sec_toggle = new ParamDoubleSpinBoxControl("np_lat_alc_auto_sec", QString::fromUtf8("　") + tr("Auto Advanced Lane Change (ALC) after:"), tr("Off = Disable Auto Advanced Lane Change."), "", 0, 5.0, 0.5, tr(" sec"), tr("Off"));
 
   QWidget *label = nullptr;
   bool has_toggle = false;
@@ -32,8 +32,8 @@ void DPPanel::add_lateral_toggles() {
     if (param.isEmpty()) {
       label = new LabelControl(title, "");
       addItem(label);
-      addItem(lca_speed_toggle);
-      addItem(lca_sec_toggle);
+      addItem(alc_speed_toggle);
+      addItem(alc_sec_toggle);
       has_toggle = true;
       continue;
     }
@@ -263,7 +263,7 @@ void DPPanel::showEvent(QShowEvent *event) {
 
 void DPPanel::updateStates() {
   // do fs_watch here
-  fs_watch->addParam("dp_lat_lca_speed");
+  fs_watch->addParam("np_lat_alc_speed");
   fs_watch->addParam("dp_lon_ext_radar");
   fs_watch->addParam("dp_lon_acm");
 
@@ -272,7 +272,7 @@ void DPPanel::updateStates() {
   }
 
   // do state change logic here
-  lca_sec_toggle->setVisible(std::atoi(params.get("dp_lat_lca_speed").c_str()) > 0);
+  alc_sec_toggle->setVisible(std::atoi(params.get("np_lat_alc_speed").c_str()) > 0);
   if (vehicle_has_long_ctrl) {
     toggles["dp_lon_acm_downhill"]->setVisible(params.getBool("dp_lon_acm"));
   }

@@ -24,6 +24,7 @@ from openpilot.common.realtime import config_realtime_process, DT_MDL
 from openpilot.common.transformations.camera import DEVICE_CAMERAS
 from openpilot.common.transformations.model import get_warp_matrix
 from openpilot.selfdrive.controls.lib.desire_helper import DesireHelper
+from nagaspilot.selfdrive.controls.lib.np_alc_controller import NpAlcController
 from openpilot.selfdrive.controls.lib.drive_helpers import get_accel_from_plan, smooth_value, get_curvature_from_plan
 from openpilot.selfdrive.modeld.parse_model_outputs import Parser
 from openpilot.selfdrive.modeld.fill_model_msg import fill_model_msg, fill_pose_msg, PublishState
@@ -31,6 +32,7 @@ from openpilot.selfdrive.modeld.constants import ModelConstants, Plan
 from openpilot.selfdrive.modeld.models.commonmodel_pyx import DrivingModelFrame, CLContext
 from openpilot.selfdrive.modeld.runners.tinygrad_helpers import qcom_tensor_from_opencl_address
 from dragonpilot.selfdrive.controls.lib.road_edge_detector import RoadEdgeDetector
+# Lane width calculation now handled by ALC controller
 
 
 PROCESS_NAME = "selfdrive.modeld.modeld"
@@ -252,10 +254,11 @@ def main(demo=False):
   long_delay = CP.longitudinalActuatorDelay + LONG_SMOOTH_SECONDS
   prev_action = log.ModelDataV2.Action()
 
-  dp_lat_lca_speed = int(params.get("dp_lat_lca_speed"))
-  dp_lat_lca_auto_sec = float(params.get("dp_lat_lca_auto_sec"))
-  DH = DesireHelper(dp_lat_lca_speed=dp_lat_lca_speed, dp_lat_lca_auto_sec=dp_lat_lca_auto_sec)
+  np_lat_alc_speed = int(params.get("np_lat_alc_speed"))
+  np_lat_alc_auto_sec = float(params.get("np_lat_alc_auto_sec"))
+  DH = DesireHelper(np_lat_alc_speed=np_lat_alc_speed, np_lat_alc_auto_sec=np_lat_alc_auto_sec)
   RED = RoadEdgeDetector(params.get_bool("dp_lat_road_edge_detection"))
+  ALC = NpAlcController(np_lat_alc_speed=np_lat_alc_speed, np_lat_alc_auto_sec=np_lat_alc_auto_sec)
 
   while True:
     # Keep receiving frames until we are at least 1 frame ahead of previous extra frame
@@ -356,7 +359,13 @@ def main(demo=False):
       RED.update(modelv2_send.modelV2.roadEdgeStds, modelv2_send.modelV2.laneLineProbs)
       model_ext_send.modelExt.leftEdgeDetected = RED.left_edge_detected
       model_ext_send.modelExt.rightEdgeDetected = RED.right_edge_detected
-      DH.update(sm['carState'], sm['carControl'].latActive, lane_change_prob, RED.left_edge_detected, RED.right_edge_detected)
+      # Prepare model data for ALC controller
+      model_data = {'modelV2': modelv2_send.modelV2}
+      
+      # ALC enhancement: Modify carstate BSD detection with lane width + road edge logic
+      ALC.update(sm['carState'], model_data, DT_MDL, time.monotonic(), RED.left_edge_detected, RED.right_edge_detected)
+      
+      DH.update(sm['carState'], sm['carControl'].latActive, lane_change_prob, RED.left_edge_detected, RED.right_edge_detected, model_data)
       modelv2_send.modelV2.meta.laneChangeState = DH.lane_change_state
       modelv2_send.modelV2.meta.laneChangeDirection = DH.lane_change_direction
       drivingdata_send.drivingModelData.meta.laneChangeState = DH.lane_change_state

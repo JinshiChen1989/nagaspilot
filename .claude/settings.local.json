@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python:*)",
+      "Read(//home/vcar/dev/**)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(scons:*)",
+      "Bash(dpkg:*)",
+      "Bash(apt list:*)",
+      "Bash(rm:*)",
+      "Bash(find:*)",
+      "Read(//home/vcar/openpilot/**)",
+      "Read(//home/vcar/**)",
+      "Bash(lscpu:*)",
+      "Read(//tmp/**)",
+      "Bash(cat:*)",
+      "Read(///**)",
+      "Bash(ln:*)",
+      "Bash(grep:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Read(//usr/**)",
+      "Bash(clang++:*)",
+      "Bash(git push:*)",
+      "Bash(git remote set-url:*)",
+      "WebFetch(domain:localhost)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
