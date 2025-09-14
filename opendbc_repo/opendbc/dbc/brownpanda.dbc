@@ -33,199 +33,215 @@ NS_ :
 
 BS_:
 
-BU_: LAS GW mADC
+BU_:
 
+
+BO_ 3221225472 VECTOR__INDEPENDENT_SIG_MSG: 0 Vector__XXX
+ SG_ moveAlert : 0|1@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ driverAlert : 0|1@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ driverHandsOn : 0|1@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ driverOverride : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ driverAttention : 0|8@0+ (0.4,0) [0|102] "%" Vector__XXX
+ SG_ driverFatigue : 0|8@0+ (0.4,0) [0|102] "%" Vector__XXX
+ SG_ gearPos : 0|2@0+ (1,0) [0|7] "" Vector__XXX
+ SG_ statCcEn : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ statCcActive : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ statLnEn : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ statLnActive : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ vehDynMode : 0|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ cmdDispFCW : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispMoving : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispStandStill : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispBsdRight : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispBsdLeft : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispCcEn : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispCcActive : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispFollowDistance : 0|3@0+ (1,0) [0|7] "" Vector__XXX
+ SG_ cmdDispSpeed : 0|16@0+ (0.01,0) [0|655.35] "km/h" Vector__XXX
 
 BO_ 1760 _0x6E0_userCommand: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ brkPedal : 0|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ accPedal : 8|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ steerAngle : 16|16@1+ (0.1,-3276.8) [-3276.8|3276.7] "deg" Vector__XXX
- SG_ SteerYawRate : 32|12@1+ (0.01,-81.92) [-81.92|81.91] "deg/s" Vector__XXX
- SG_ btnCcEn : 44|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnLaneEn : 45|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnMads : 56|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnCcSet : 48|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnCcCancel : 49|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnCcResume : 50|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnSpdUp : 51|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnSpdDn : 52|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnDistNr : 46|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnDistFar : 47|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnHazard : 57|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnBlinkL : 58|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ btnBlinkR : 59|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ actPedalPressed : 54|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ actBrakePressed : 55|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ actSteerPressed : 53|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnDistNr : 40|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnDistFar : 41|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnCcSet : 54|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnCcResume : 55|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ brkPedal : 15|8@0+ (0.4,0) [0|102] "%" Vector__XXX
+ SG_ accPedal : 7|8@0+ (0.4,0) [0|102] "%" Vector__XXX
+ SG_ steerAngle : 23|16@0- (0.1,0) [-3276.8|3276.7] "deg" Vector__XXX
+ SG_ SteerYawRate : 39|12@0- (0.01,0) [-20.48|20.47] "deg/s" Vector__XXX
+ SG_ btnCcEn : 52|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnCcCancel : 53|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnSpdUp : 42|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnSpdDn : 43|1@0+ (1,0) [0|1] "" Vector__XXX
 
-BO_ 1761 _0x6E1_driverState: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ driverAlert : 0|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ driverHandsOn : 2|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ driverEyeTrack : 4|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ driverOverride : 6|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ driverAttention : 8|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ driverFatigue : 16|8@1+ (0.4,0) [0|102] "%" Vector__XXX
+BO_ 1761 _0x6E1_userCommand2: 8 Vector__XXX
+ SG_ btnLnCancel : 7|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnMads : 8|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnLaneEn : 6|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnHazard : 5|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnBlinkR : 4|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ btnBlinkL : 3|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ actSteerPressed : 2|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ actPedalPressed : 1|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ actBrakePressed : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
 
 BO_ 1762 _0x6E2_carState: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ steerTorq : 0|16@1+ (0.1,-3276.8) [-3276.8|3276.7] "Nm" Vector__XXX
- SG_ brkPressure : 16|8@1+ (0.1,0) [0|25.5] "bar" Vector__XXX
- SG_ vehSpd : 24|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ gearPos : 37|3@1+ (1,0) [0|7] "" Vector__XXX
- SG_ adasSettings : 40|8@1+ (1,0) [0|255] "" Vector__XXX
- SG_ statCcEn : 48|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ statCcActive : 49|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ statLnEn : 50|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ statLnActive : 51|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ vehDynMode : 56|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ parkingBrake : 58|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ rdyDrive : 59|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotFL : 52|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotFR : 53|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotRL : 54|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ blindSpotRR : 55|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ targetSpeed : 33|14@0+ (0.1,0) [0|409.5] "km/h" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ steerTorq : 7|16@0+ (0.1,-3276.8) [-3276.8|3276.7] "Nm" Vector__XXX
+ SG_ brkPressure : 23|8@0+ (0.1,0) [0|25.5] "bar" Vector__XXX
+ SG_ currentSpeed : 31|14@0+ (0.05625,0) [0|360] "km/h" Vector__XXX
 
 BO_ 1763 _0x6E3_carState2: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ switchBeltDriver : 0|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchBeltPassenger : 1|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchHood : 2|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchTrunk : 3|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchDoorFL : 4|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchDoorFR : 5|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchDoorRL : 6|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ switchDoorRR : 7|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ chrgState : 8|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ setSpeedKph : 16|12@1+ (0.1,0) [0|409.5] "km/h" Vector__XXX
- SG_ gapIndex : 28|2@1+ (1,1) [1|4] "" Vector__XXX
- SG_ turnSignalL : 30|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ turnSignalR : 31|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ accFault : 32|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ switchBeltDriver : 0|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchBeltPassenger : 1|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchHood : 2|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchTrunk : 3|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchDoorFL : 4|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchDoorFR : 5|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchDoorRL : 6|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ switchDoorRR : 7|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ gapIndex : 9|2@0+ (1,1) [1|4] "" Vector__XXX
+ SG_ turnSignalL : 10|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ turnSignalR : 11|1@0+ (1,0) [0|1] "" Vector__XXX
 
-BO_ 1764 _0x6E4_espState: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ wheelRearRight : 47|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ wheelRearLeft : 34|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ wheelFrontRight : 21|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
- SG_ wheelFrontLeft : 8|13@1+ (0.05625,0) [0|360] "km/h" Vector__XXX
+BO_ 1766 _0x6E6_espState: 8 Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ wheelRearRight : 29|13@0+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelRearLeft : 32|13@0+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelFrontRight : 10|13@0+ (0.05625,0) [0|360] "km/h" Vector__XXX
+ SG_ wheelFrontLeft : 7|13@0+ (0.05625,0) [0|360] "km/h" Vector__XXX
 
-BO_ 1765 _0x6E5_adasState: 8 Vector__XXX
- SG_ leadDistY : 0|14@1+ (0.04,0) [0|655.32] "m" Vector__XXX
- SG_ leadDistX : 14|14@1+ (0.04,0) [0|655.32] "m" Vector__XXX
- SG_ leadNum : 28|4@1+ (1,0) [0|3] "" Vector__XXX
- SG_ leadConf : 32|8@1+ (0.4,0) [0|102] "%" Vector__XXX
+BO_ 1764 _0x6E4_adasState: 8 Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ bsdRearRight : 55|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ bsdRearLeft : 54|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ bsdFrontRight : 53|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ bsdFrontLeft : 52|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ leadDistY : 7|14@0+ (0.04,0) [0|655.32] "m" Vector__XXX
+ SG_ leadDistX : 9|14@0+ (0.04,0) [0|655.32] "m" Vector__XXX
+ SG_ leadNum : 27|4@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ leadConf : 39|8@0+ (0.4,0) [0|102] "%" Vector__XXX
 
-BO_ 1766 _0x6E6_chassisState: 8 Vector__XXX
- SG_ longAccel : 0|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
- SG_ latAccel : 16|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
- SG_ espEn : 56|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ absEn : 57|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ tracCtrlEn : 58|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ stabCtrlEn : 59|1@1+ (1,0) [0|1] "" Vector__XXX
+BO_ 1765 _0x6E5_adasState2: 8 Vector__XXX
 
-BO_ 1767 _0x6E7_powertrainState: 8 Vector__XXX
- SG_ engRun : 0|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ systemHealth : 1|3@1+ (1,0) [0|7] "" Vector__XXX
- SG_ pwrFault : 4|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ coolTemp : 8|8@1+ (1,-40) [-40|215] "C" Vector__XXX
- SG_ fuelLvl : 16|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ battTemp : 24|8@1+ (1,-40) [-40|215] "C" Vector__XXX
- SG_ battLvl : 32|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ faultHistory : 40|8@1+ (1,0) [0|255] "" Vector__XXX
- SG_ engRPM : 48|14@1+ (0.25,0) [0|4095.75] "rpm" Vector__XXX
- SG_ engType : 62|2@1+ (1,0) [0|3] "" Vector__XXX
+BO_ 1767 _0x6E7_pwtState: 8 Vector__XXX
+ SG_ idleStop : 55|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ engRun : 54|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ pwrFault : 43|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ coolTemp : 23|8@0+ (1,-40) [-40|215] "C" Vector__XXX
+ SG_ battTemp : 31|8@0+ (1,-40) [-40|215] "C" Vector__XXX
+ SG_ engRPM : 7|16@0+ (0.1,0) [0|6553.5] "rpm" Vector__XXX
+ SG_ engType : 53|2@0+ (1,0) [0|3] "" Vector__XXX
 
 BO_ 1768 _0x6E8_ImuSensor: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ imuYaw : 0|16@1+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
- SG_ imuRoll : 32|16@1+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
- SG_ imuPitch : 16|16@1+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
- 
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ imuYaw : 7|16@0+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
+ SG_ imuRoll : 39|16@0+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
+ SG_ imuPitch : 23|16@0+ (0.015,-491.512) [-491.512|491.513] "deg/s" Vector__XXX
+
 BO_ 1769 _0x6E9_imuSensor2: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ imuAxisLong : 16|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
- SG_ imuAxisZ : 32|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
- SG_ imuAxisLat : 0|16@1+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ imuAxisLong : 23|16@0+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
+ SG_ imuAxisZ : 39|16@0+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
+ SG_ imuAxisLat : 7|16@0+ (0.001,-32.768) [-32.768|32.767] "m/s2" Vector__XXX
 
 BO_ 1770 _0x6EA_longCommand: 8 Vector__XXX
- SG_ cmdPedalGas : 48|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdBrakePressure : 28|12@1+ (0.015625,0) [0|63.984375] "bar" Vector__XXX
- SG_ cmdPedalBrk : 40|8@1+ (0.4,0) [0|102] "%" Vector__XXX
- SG_ cmdMotorTorque : 16|12@1+ (5,-20480) [-20480|-5005] "NM" Vector__XXX
- SG_ cmdSpeedTarget : 0|16@1+ (0.01,0) [0|655.35] "km/h" Vector__XXX
- SG_ cmdRegenEn : 57|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdRegenKer : 58|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ cmdCruiseEn : 56|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdRegenKer : 53|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ cmdRegenEn : 55|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdCruiseEn : 54|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ cmdBrakePressure : 27|12@0+ (0.015625,0) [0|63.984375] "bar" Vector__XXX
+ SG_ cmdMotorTorque : 9|14@0- (1,0) [-8192|8191] "NM" Vector__XXX
+ SG_ cmdSpeedTarget : 7|14@0+ (0.01,0) [0|163.83] "km/h" Vector__XXX
 
 BO_ 1771 _0x6EB_longCommand2: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdSpeedAccel : 0|8@1+ (0.05,-12.8) [-12.8|-0.05] "m/s2" Vector__XXX
- SG_ cmdSpeedDecel : 8|8@1+ (0.05,-12.8) [-12.8|-0.05] "m/s2" Vector__XXX
- SG_ cmdAccelTune : 16|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdDecelTune : 20|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdBrakeComp : 24|8@1+ (0.0039216,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ cmdPedalGas : 47|8@0+ (0.4,0) [0|102] "%" Vector__XXX
+ SG_ cmdPedalBrk : 39|8@0+ (0.4,0) [0|102] "%" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ cmdSpeedAccel : 7|8@0+ (0.05,-12.8) [-12.8|-0.05] "m/s2" Vector__XXX
+ SG_ cmdSpeedDecel : 15|8@0+ (0.05,-12.8) [-12.8|-0.05] "m/s2" Vector__XXX
+ SG_ cmdAccelTune : 19|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ cmdDecelTune : 23|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ cmdBrakeComp : 31|8@0+ (0.0039216,0) [0|1] "" Vector__XXX
 
 BO_ 1772 _0x6EC_latCommand: 8 Vector__XXX
- SG_ cmdWheelTorque : 32|16@1+ (0.1,-3276.8) [-3276.8|3276.7] "Nm" Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdSteerAngle : 0|16@1+ (0.1,-3276.8) [-3276.8|3276.7] "deg" Vector__XXX
- SG_ cmdSteerTorque : 16|16@1+ (0.01,-327.68) [-327.68|327.67] "Nm" Vector__XXX
- SG_ cmdSteerMode : 58|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ cmdSteerEnable : 56|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdSteerShake : 57|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispDepartRight : 45|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispDepartLeft : 44|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispTurnRight : 41|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispTurnLeft : 40|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispLnEn : 42|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispLnActive : 43|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ cmdRackTorque : 29|16@0- (0.1,0) [-3276.8|3276.7] "Nm" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ cmdSteerAngle : 7|14@0- (0.1,0) [-819.2|819.1] "deg" Vector__XXX
+ SG_ cmdSteerTorque : 9|12@0- (0.01,0) [-20.48|20.47] "Nm" Vector__XXX
+ SG_ cmdSteerMode : 55|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ cmdSteerEnable : 52|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdSteerShake : 53|1@0+ (1,0) [0|1] "" Vector__XXX
 
 BO_ 1773 _0x6ED_dispCommand: 8 Vector__XXX
- SG_ cmdDispFCW : 18|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispDistraction : 19|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispMoving : 17|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispStandStill : 16|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispTurnRight : 12|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispTurnLeft : 11|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispLeadNumber : 20|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdDispLeadLong : 48|12@1+ (0.1,0) [0|409.5] "m" Vector__XXX
- SG_ cmdDispLeadLat : 40|8@1+ (0.1,-12.75) [-12.75|12.75] "m" Vector__XXX
- SG_ cmdDispBsdRight : 10|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispBsdLeft : 9|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdSteerAlert : 6|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ cmdDispCcEn : 0|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispCcActive : 1|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispLnEn : 2|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispLnActive : 3|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispSoundAlert : 8|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispDepartLeft : 4|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispDepartRight : 5|1@1+ (1,0) [0|1] "" Vector__XXX
- SG_ cmdDispFollowDistance : 13|3@1+ (1,0) [0|7] "" Vector__XXX
- SG_ cmdDispSpeed : 24|16@1+ (0.01,0) [0|655.35] "km/h" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ cmdDispDistraction : 53|1@0+ (1,0) [0|1] "" Vector__XXX
+ SG_ cmdDispLeadNumber : 7|10@0+ (1,0) [0|1023] "" Vector__XXX
+ SG_ cmdDispLeadLong : 17|18@0- (0.01,0) [-1310.72|1310.71] "m" Vector__XXX
+ SG_ cmdDispLeadLat : 13|12@0- (0.01,0) [-20.48|20.47] "m" Vector__XXX
+ SG_ cmdSteerAlert : 55|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ cmdDispSoundAlert : 52|1@0+ (1,0) [0|1] "" Vector__XXX
 
 BO_ 1774 _0x6EE_dispCommand2: 8 Vector__XXX
- SG_ ACC_LaneTypeRightRight : 22|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ ACC_LaneTypeLeftLeft : 20|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ ACC_LaneTypeRight : 18|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ ACC_LaneTypeLeft : 16|2@1+ (1,0) [0|3] "" Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- SG_ ACC_LaneEquationC3 : 48|12@1+ (4.768E-07,-0.0009760857) [-0.0009760857|0.0009760857] ""  LAS,GW,mADC
- SG_ ACC_LaneEquationC2 : 36|12@1+ (1.52588E-05,-0.0312347412) [-0.0312347412|0.0312347412] ""  LAS,GW,mADC
- SG_ ACC_LaneEquationC1 : 24|12@1+ (0.0004882813,-1) [-1|0.9990234375] "rad"  LAS,GW,mADC
- SG_ ACC_LaneDistanceRight : 8|8@1+ (0.05,-6.375) [-6.375|6.375] "m"  LAS,GW,mADC
- SG_ ACC_LaneDistanceLeft : 0|8@1+ (0.05,-6.375) [-6.375|6.375] "m"  LAS,GW,mADC
+ SG_ ACC_LaneDistanceRightRight : 31|8@0+ (0.05,0) [0|12.75] "m" Vector__XXX
+ SG_ ACC_LaneDistanceLeftLeft : 23|8@0+ (0.05,0) [0|12.75] "m" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ ACC_LaneTypeRightRight : 39|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ ACC_LaneTypeLeftLeft : 37|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ ACC_LaneTypeRight : 35|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ ACC_LaneTypeLeft : 33|2@0+ (1,0) [0|3] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ ACC_LaneDistanceRight : 15|8@0+ (0.05,0) [0|12.75] "m" Vector__XXX
+ SG_ ACC_LaneDistanceLeft : 7|8@0+ (0.05,0) [0|12.75] "m" Vector__XXX
 
 BO_ 1775 _0x6EF_spareCommand: 8 Vector__XXX
- SG_ counter : 60|4@1+ (1,0) [0|15] "" Vector__XXX
- 
-BO_ 1776 _0x6F0_BYD: 4 Vector__XXX
- SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
- 
-BO_ 1777 _0x6F1_CHANGAN: 4 Vector__XXX
- SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+
+BO_ 1776 _0x6F0_BYD: 8 Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ modelMarker : 7|8@0+ (1,0) [0|255] "" Vector__XXX
+
+BO_ 1777 _0x6F1_CHANGAN: 8 Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ modelMarker : 7|8@0+ (1,0) [0|255] "" Vector__XXX
 
 BO_ 1778 _0x6F2_MG: 8 Vector__XXX
- SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ modelMarker : 7|8@0+ (1,0) [0|255] "" Vector__XXX
 
 BO_ 1779 _0x6F3_GAC: 8 Vector__XXX
- SG_ modelMarker : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+ SG_ CRC8_J1850 : 63|8@0+ (1,0) [0|255] "" Vector__XXX
+ SG_ counter : 51|4@0+ (1,0) [0|15] "" Vector__XXX
+ SG_ modelMarker : 7|8@0+ (1,0) [0|255] "" Vector__XXX
 
+
+
+CM_ BO_ 3221225472 "This is a message for not used signals, created by Vector CANdb++ DBC OLE DB Provider.";
 

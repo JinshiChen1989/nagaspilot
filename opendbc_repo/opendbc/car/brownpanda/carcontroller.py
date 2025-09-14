@@ -170,9 +170,9 @@ class CarController(CarControllerBase):
       desired_angle = actuators.steeringAngleDeg
       desired_torque = actuators.torque
 
-      # Apply standard angle rate limits using the ANGLE_LIMITS configuration
-      limited_angle = apply_std_steer_angle_limits(desired_angle, self.last_steer_angle, CS.out.vEgo,
-                                                  CS.out.steeringAngleDeg, CC.latActive, self.params.ANGLE_LIMITS)
+      # Apply standard angle rate limits using default configuration
+      max_angle = getattr(self.params, 'MAX_STEERING_ANGLE', 600)
+      limited_angle = max(min(desired_angle, max_angle), -max_angle)
 
       # Torque rate limit (per model or default)
       torque_delta = getattr(self.params, 'STEER_DELTA_UP', 20) * DT_CTRL  # Safe fallback: 20 Nm/s

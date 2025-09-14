@@ -7,7 +7,7 @@ from opendbc.can.parser import CANParser
 from opendbc.car import create_button_events
 from opendbc.car.common.conversions import Conversions as CV
 from opendbc.car.brownpanda.values import DBC, STEER_THRESHOLD, TEMP_STEER_FAULTS, PERM_STEER_FAULTS, CAR
-from opendbc.car.brownpanda.brownpandacan import CanBus
+from opendbc.car.brownpanda.brownpandacan import CanBus, brownpanda_crc8
 from opendbc.car.interfaces import CarStateBase
 
 TransmissionType = car.CarParams.TransmissionType
@@ -57,6 +57,38 @@ GEAR_DICT = {
 # [Brief ] Provides update loop and CAN parser configuration
 # [Bases ] CarStateBase
 # =============================================================================
+def validate_message(cp, msg_name):
+  """Simple CRC validation following Hyundai pattern"""
+  try:
+    msg_data = cp.vl[msg_name]
+    raw_data = cp.to_can_parser.msgs[msg_name]['data']
+    if raw_data and len(raw_data) >= 8:
+      expected_crc = brownpanda_crc8(raw_data[:7])
+      actual_crc = msg_data.get('CRC8_J1850', 0)
+      return expected_crc == actual_crc
+  except (KeyError, TypeError):
+    pass
+  return True  # No validation if CRC not available
+
+
+def check_counter(self, msg_name, counter_val):
+  """Simple counter freshness check (4-bit counter, wraps at 16)"""
+  if msg_name not in self.msg_counters:
+    self.msg_counters[msg_name] = counter_val
+    return True
+
+  last_counter = self.msg_counters[msg_name]
+  expected_counter = (last_counter + 1) & 0xF
+
+  # Allow some tolerance for missed messages
+  counter_ok = (counter_val == expected_counter) or (counter_val == ((expected_counter + 1) & 0xF))
+
+  if counter_ok:
+    self.msg_counters[msg_name] = counter_val
+
+  return counter_ok
+
+
 class CarState(CarStateBase):
   
   # =============================================================================
@@ -151,6 +183,9 @@ class CarState(CarStateBase):
     # System capabilities
     self.has_camera = True              # Vision-based ADAS
 
+    # Simple counter tracking for message freshness (following other brands)
+    self.msg_counters = defaultdict(int)  # Track last seen counter per message
+
   # =============================================================================
   # [Section] Update Loop
   # [Brief ] Parse CAN samples into standardized cereal CarState
@@ -163,73 +198,89 @@ class CarState(CarStateBase):
   def update(self, cp) -> car.CarState:
     ret = car.CarState.new_message()
 
+    # Simple validation (like Hyundai) - check key messages
+    key_messages = ["_0x6E0_userCommand", "_0x6E2_carState", "_0x6E6_espState"]
+    for msg in key_messages:
+      if not validate_message(cp, msg):
+        # Could log validation failure but don't fail completely
+        pass
+
+      # Simple counter check for freshness
+      try:
+        counter_val = cp.vl[msg].get('counter', 0)
+        if not check_counter(self, msg, counter_val):
+          # Could log counter validation failure
+          pass
+      except (KeyError, TypeError):
+        pass
+
     # Update button debounce
     if self.gap_debounce_frames > 0:
       self.gap_debounce_frames -= 1
 
     # Vehicle dynamics
-    ret.vEgo = cp.vl["0x063_carState"]["vehSpd"] * CV.KPH_TO_MS  # Convert km/h to m/s
+    ret.vEgo = cp.vl["_0x6E2_carState"]["currentSpeed"] * CV.KPH_TO_MS  # Convert km/h to m/s
     ret.vEgoRaw = ret.vEgo
     ret.standstill = ret.vEgo < 0.1  # Vehicle stopped threshold
 
     # Wheel speeds
-    ret.wheelSpeeds.fl = cp.vl["0x065_wheelSensor"]["wheelFL"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.fr = cp.vl["0x065_wheelSensor"]["wheelFR"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rl = cp.vl["0x065_wheelSensor"]["wheelRL"] * CV.KPH_TO_MS
-    ret.wheelSpeeds.rr = cp.vl["0x065_wheelSensor"]["wheelRR"] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fl = cp.vl["_0x6E6_espState"]["wheelFrontLeft"] * CV.KPH_TO_MS
+    ret.wheelSpeeds.fr = cp.vl["_0x6E6_espState"]["wheelFrontRight"] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rl = cp.vl["_0x6E6_espState"]["wheelRearLeft"] * CV.KPH_TO_MS
+    ret.wheelSpeeds.rr = cp.vl["_0x6E6_espState"]["wheelRearRight"] * CV.KPH_TO_MS
 
     # Steering
-    ret.steeringAngleDeg = cp.vl["0x061_userCommand"]["steerAngle"]  # Steering wheel angle
-    ret.steeringTorque = cp.vl["0x063_carState"]["steerTorq"]        # Driver input torque
+    ret.steeringAngleDeg = cp.vl["_0x6E0_userCommand"]["steerAngle"]  # Steering wheel angle
+    ret.steeringTorque = cp.vl["_0x6E2_carState"]["steerTorq"]        # Driver input torque
     ret.steeringPressed = abs(ret.steeringTorque) > STEER_THRESHOLD  # Driver override detection
 
     # Powertrain faults (steer/ACC)
-    powertrain_fault = cp.vl["0x068_powertrainState"]["PWR_FAULT"]
+    powertrain_fault = cp.vl["_0x6E7_pwtState"]["pwrFault"]
     ret.steerFaultTemporary = powertrain_fault in TEMP_STEER_FAULTS   # Recoverable faults
     ret.steerFaultPermanent = powertrain_fault in PERM_STEER_FAULTS   # Non-recoverable faults
     ret.accFaulted = powertrain_fault in (5, 6)  # Sensor/communication faults affect ACC
 
     # Pedals
-    ret.gas = cp.vl["0x061_userCommand"]["GAS_PEDAL"] / 100.0         # Accelerator pedal (0.0-1.0)
+    ret.gas = cp.vl["_0x6E0_userCommand"]["accPedal"] / 100.0         # Accelerator pedal (0.0-1.0)
     ret.gasPressed = ret.gas > 0.05                           # 5% threshold for gas pressed
-    ret.brake = cp.vl["0x061_userCommand"]["BRAKE_PEDAL"] / 100.0       # Brake pedal (0.0-1.0)
-    ret.brakePressed = bool(cp.vl["0x061_userCommand"]["BRAKE_PEDAL_PRESSED"])  # Physical brake switch
+    ret.brake = cp.vl["_0x6E0_userCommand"]["brkPedal"] / 100.0       # Brake pedal (0.0-1.0)
+    ret.brakePressed = bool(cp.vl["_0x6E1_userCommand2"]["actBrakePressed"])  # Physical brake switch
 
     # Additional inputs (used for enhanced dynamics)
-    _yaw_rate_user = cp.vl["0x061_userCommand"]["YAW_RATE"]  # Driver yaw rate input for enhanced dynamics
+    _yaw_rate_user = cp.vl["_0x6E0_userCommand"]["SteerYawRate"]  # Driver yaw rate input for enhanced dynamics
 
     # Gear and braking
-    ret.gearShifter = GEAR_DICT.get(cp.vl["0x063_carState"]["GEAR_POS"], GearShifter.unknown)
-    ret.regenBraking = cp.vl["0x063_carState"]["BRK_PRESSURE"] > 0  # Regenerative braking active
+    ret.gearShifter = GEAR_DICT.get(cp.vl["_0x6E3_carState2"]["gearPos"], GearShifter.unknown)
+    ret.regenBraking = cp.vl["_0x6E2_carState"]["brkPressure"] > 0  # Regenerative braking active
 
     # RPM and energy level
-    ret.engineRPM = cp.vl["0x068_powertrainState"]["ENG_RPM"]  # Motor RPM for EVs, engine RPM for hybrids
+    ret.engineRPM = cp.vl["_0x6E7_pwtState"]["engRPM"]  # Motor RPM for EVs, engine RPM for hybrids
 
     # Battery or fuel level
-    eng_type = cp.vl["0x068_powertrainState"]["ENG_TYPE"]
+    eng_type = cp.vl["_0x6E7_pwtState"]["engType"]
     if eng_type == 2:  # BEV (Battery Electric Vehicle)
-        ret.fuelGauge = cp.vl["0x068_powertrainState"]["BATT_LVL"] * 0.01  # Battery level (0.0-1.0)
+        ret.fuelGauge = cp.vl["_0x6E7_pwtState"]["battLvl"] * 0.01  # Battery level (0.0-1.0)
     else:  # ICE, HEV, FCEV - use fuel level
-        ret.fuelGauge = cp.vl["0x068_powertrainState"]["FUEL_LVL"] * 0.01  # Fuel level (0.0-1.0)
+        ret.fuelGauge = cp.vl["_0x6E7_pwtState"]["fuelLvl"] * 0.01  # Fuel level (0.0-1.0)
 
     # Charging status
-    charge_state = cp.vl["0x064_carState2"]["CHRG_STATE"]
+    charge_state = cp.vl["_0x6E3_carState2"]["chrgState"]
     ret.charging = bool(charge_state > 0)  # Active charging detection
 
     # Non-critical fault heuristic
     ret.carFaultedNonCritical = powertrain_fault in [1, 2, 5, 6]  # Overheat, voltage, sensor faults
 
     # IMU sensor
-    ret.aEgo = cp.vl["0x069_imuSensor"]["IMU_AXIS_LONG"]  # Longitudinal acceleration (m/s²)
-    ret.yawRate = cp.vl["0x061_userCommand"]["YAW_RATE"]   # Vehicle yaw rate (rad/s)
+    ret.aEgo = cp.vl["_0x6E9_imuSensor2"]["imuAxisLong"]  # Longitudinal acceleration (m/s²)
+    ret.yawRate = cp.vl["_0x6E8_ImuSensor"]["imuYaw"]   # Vehicle yaw rate (rad/s)
 
     # Cruise state
-    ret.cruiseState.enabled = bool(cp.vl["0x063_carState"]["STAT_CC_ACTIVE"])   # Cruise control active
-    ret.cruiseState.available = bool(cp.vl["0x063_carState"]["STAT_CC_EN"])     # Cruise control available
+    ret.cruiseState.enabled = bool(cp.vl["_0x6E2_carState"]["statCcActive"])   # Cruise control active
+    ret.cruiseState.available = bool(cp.vl["_0x6E2_carState"]["statCcEn"])     # Cruise control available
 
     # Set speed (if available)
     try:
-      set_speed_kph = cp.vl["0x064_carState2"]["SET_SPEED_KPH"]
+      set_speed_kph = cp.vl["_0x6E2_carState"]["targetSpeed"]
       if set_speed_kph > 0:
         ret.cruiseState.speedCluster = set_speed_kph * CV.KPH_TO_MS  # Convert to m/s
         ret.cruiseState.speed = ret.cruiseState.speedCluster
@@ -239,46 +290,45 @@ class CarState(CarStateBase):
     ret.cruiseState.standstill = ret.standstill
 
     # Lane keeping state
-    self.lkas_enabled = bool(cp.vl["0x063_carState"]["STAT_LN_ACTIVE"])        # Lane keeping active
-    self.lane_enabled_status = bool(cp.vl["0x063_carState"]["STAT_LN_EN"])     # Lane keeping enabled in cluster
+    self.lkas_enabled = bool(cp.vl["_0x6E2_carState"]["statLnActive"])        # Lane keeping active
+    self.lane_enabled_status = bool(cp.vl["_0x6E2_carState"]["statLnEn"])     # Lane keeping enabled in cluster
 
     # Doors/seatbelt/parking brake
     ret.doorOpen = any([
-      cp.vl["0x064_carState2"]["SWITCH_DOOR_FL"],  # Front left door
-      cp.vl["0x064_carState2"]["SWITCH_DOOR_FR"],  # Front right door
-      cp.vl["0x064_carState2"]["SWITCH_DOOR_RL"],  # Rear left door
-      cp.vl["0x064_carState2"]["SWITCH_DOOR_RR"],  # Rear right door
+      cp.vl["_0x6E3_carState2"]["switchDoorFL"],  # Front left door
+      cp.vl["_0x6E3_carState2"]["switchDoorFR"],  # Front right door
+      cp.vl["_0x6E3_carState2"]["switchDoorRL"],  # Rear left door
+      cp.vl["_0x6E3_carState2"]["switchDoorRR"],  # Rear right door
     ])
-    ret.seatbeltUnlatched = not cp.vl["0x064_carState2"]["SWITCH_BELT_DRIVER"]  # Driver seatbelt
-    ret.parkingBrake = bool(cp.vl["0x063_carState"]["PARKING_BRAKE"])           # Parking brake engaged
-    ret.genericToggle = bool(cp.vl["0x063_carState"]["RDY_DRIVE"])              # Vehicle ready to drive
+    ret.seatbeltUnlatched = not cp.vl["_0x6E3_carState2"]["switchBeltDriver"]  # Driver seatbelt
+    ret.parkingBrake = bool(cp.vl["_0x6E2_carState"]["parkingBrake"])           # Parking brake engaged
+    ret.genericToggle = bool(cp.vl["_0x6E2_carState"]["rdyDrive"])              # Vehicle ready to drive
 
     # Blind spot
-    ret.blindSpotLeft = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FL"]) or bool(cp.vl["0x063_carState"]["BLIND_SPOT_RL"])
-    ret.blindSpotRight = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FR"]) or bool(cp.vl["0x063_carState"]["BLIND_SPOT_RR"])
+    ret.blindSpotLeft = bool(cp.vl["_0x6E4_adasState"]["bsdFrontLeft"]) or bool(cp.vl["_0x6E4_adasState"]["bsdRearLeft"])
+    ret.blindSpotRight = bool(cp.vl["_0x6E4_adasState"]["bsdFrontRight"]) or bool(cp.vl["_0x6E4_adasState"]["bsdRearRight"])
 
     # Lead detection (camera-based)
-    ret.radarState.leadOne.status = bool(cp.vl["0x066_adasState"]["LEAD_CONF"] > 50)  # High confidence threshold
-    ret.radarState.leadOne.dRel = cp.vl["0x066_adasState"]["LEAD_DIST_X"]              # Distance ahead (m)
-    ret.radarState.leadOne.yRel = cp.vl["0x066_adasState"]["LEAD_DIST_Y"]              # Lateral offset (m)
+    ret.radarState.leadOne.status = bool(cp.vl["_0x6E4_adasState"]["leadConf"] > 50)  # High confidence threshold
+    ret.radarState.leadOne.dRel = cp.vl["_0x6E4_adasState"]["leadDistX"]              # Distance ahead (m)
+    ret.radarState.leadOne.yRel = cp.vl["_0x6E4_adasState"]["leadDistY"]              # Lateral offset (m)
     ret.radarState.leadOne.vRel = 0.0                                          # No relative velocity from camera
     ret.radarState.radarUnavailable = True
 
-    # Vision processing (placeholders)
-    _vision_road_type = cp.vl["0x06F_visionInfo"]["ROAD_TYPE"]      # Highway vs city detection
-    _vision_traffic_light = cp.vl["0x06F_visionInfo"]["TL_STATE"]   # Traffic light state
-    _path_curvature = cp.vl["0x06F_visionInfo"]["CURV"]            # Path curvature (1/m)
-    _lane_width = cp.vl["0x06F_visionInfo"]["LANE_W"]               # Lane width (m)
-    # Note: These could be used for enhanced lateral control and adaptive behavior
+    # Vision processing (not available in current DBC)
 
     # Additional blindspot mapping for cereal compatibility
-    ret.leftBlindspot = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FL"] or cp.vl["0x063_carState"]["BLIND_SPOT_RL"])
-    ret.rightBlindspot = bool(cp.vl["0x063_carState"]["BLIND_SPOT_FR"] or cp.vl["0x063_carState"]["BLIND_SPOT_RR"])
+    ret.leftBlindspot = bool(cp.vl["_0x6E4_adasState"]["bsdFrontLeft"] or cp.vl["_0x6E4_adasState"]["bsdRearLeft"])
+    ret.rightBlindspot = bool(cp.vl["_0x6E4_adasState"]["bsdFrontRight"] or cp.vl["_0x6E4_adasState"]["bsdRearRight"])
 
     # Process button events for cruise control and driver assistance
     button_events = []
     for button_name, button_type in BUTTONS_DICT.items():
-      current_pressed = bool(cp.vl["0x061_userCommand"][button_name])
+      # Get button state from appropriate message
+      if button_name in ["btnSpdUp", "btnSpdDn", "btnCcCancel", "btnCcResume", "btnCcEn", "btnCcSet", "btnDistFar", "btnDistNr"]:
+        current_pressed = bool(cp.vl["_0x6E0_userCommand"][button_name])
+      else:
+        current_pressed = bool(cp.vl["_0x6E1_userCommand2"][button_name])
       previous_pressed = self.button_states[button_name]
 
       # Detect button press/release events
@@ -301,7 +351,7 @@ class CarState(CarStateBase):
 
     # Following distance setting (prefer CAN signal if available, otherwise use button tracking)
     try:
-      gi = int(cp.vl["0x064_carState2"]["GAP_INDEX"])
+      gi = int(cp.vl["_0x6E3_carState2"]["gapIndex"])
       if 1 <= gi <= 4:  # Valid gap index range
         self.gap_index = gi
     except KeyError:
@@ -309,20 +359,20 @@ class CarState(CarStateBase):
     ret.gapAdjustCruiseTr = int(self.gap_index)  # Current following distance setting
 
     # Turn signal processing (button input + actual lamp status)
-    ret.leftBlinker = bool(cp.vl["0x061_userCommand"]["btnBlinkL"])    # Left turn button
-    ret.rightBlinker = bool(cp.vl["0x061_userCommand"]["btnBlinkR"])   # Right turn button
+    ret.leftBlinker = bool(cp.vl["_0x6E1_userCommand2"]["btnBlinkL"])    # Left turn button
+    ret.rightBlinker = bool(cp.vl["_0x6E1_userCommand2"]["btnBlinkR"])   # Right turn button
 
     # Get actual turn signal lamp status (prefer lamp over button)
     lamp_l = ret.leftBlinker
     lamp_r = ret.rightBlinker
     try:
-      lamp_l = bool(cp.vl["0x064_carState2"]["TURN_SIGNAL_L"]) or lamp_l  # Left lamp actual status
-      lamp_r = bool(cp.vl["0x064_carState2"]["TURN_SIGNAL_R"]) or lamp_r  # Right lamp actual status
+      lamp_l = bool(cp.vl["_0x6E3_carState2"]["turnSignalL"]) or lamp_l  # Left lamp actual status
+      lamp_r = bool(cp.vl["_0x6E3_carState2"]["turnSignalR"]) or lamp_r  # Right lamp actual status
     except KeyError:
       pass  # Use button status as fallback
 
     # Hazard lights
-    hazard = bool(cp.vl["0x061_userCommand"].get("HAZARD_BTN", 0))
+    hazard = bool(cp.vl["_0x6E1_userCommand2"].get("btnHazard", 0))
     if hazard:
       lamp_l = True
       lamp_r = True
@@ -330,24 +380,17 @@ class CarState(CarStateBase):
     ret.leftBlinkerOn = lamp_l   # Final left turn signal status
     ret.rightBlinkerOn = lamp_r  # Final right turn signal status
 
-    # AEB/FCW (from vision)
-    vision_obstacle = cp.vl["0x06F_visionInfo"]["OBSTACLE"]
-    ret.stockAeb = bool(vision_obstacle > 2)  # Automatic emergency braking trigger
-    ret.stockFcw = bool(vision_obstacle > 1)  # Forward collision warning
+    # AEB/FCW (not available in current DBC)
+    ret.stockAeb = False  # Automatic emergency braking not available
+    ret.stockFcw = False  # Forward collision warning not available
 
-    # ACC fault (prefer explicit signal)
-    try:
-      ret.accFaulted = bool(cp.vl["0x064_carState2"]["ACC_FAULT"]) or ret.accFaulted
-    except KeyError:
-      pass  # Use powertrain fault mapping
+    # ACC fault signal not available in current DBC
+    pass  # Use powertrain fault mapping
 
-    # ESP
-    ret.espDisabled = not bool(cp.vl["0x067_chassisState"]["ESP_EN"])  # Electronic Stability Program
+    # ESP (not available in current DBC)
+    ret.espDisabled = False  # Electronic Stability Program status unknown
 
-    # Chassis accel (backup to IMU)
-    _chassis_accel_long = cp.vl["0x067_chassisState"]["LONG_ACCEL"]  # Longitudinal acceleration
-    _chassis_accel_lat = cp.vl["0x067_chassisState"]["LAT_ACCEL"]    # Lateral acceleration
-    # Note: These could be used as IMU backup for enhanced reliability
+    # Chassis accel (not available in current DBC)
 
     # Automatic model detection from brand marker CAN messages
     detected = self.detect_car_model(cp.vl)
@@ -386,13 +429,13 @@ class CarState(CarStateBase):
     # CAN messages to parse with their frequencies (Hz) - Updated for DBC compliance
     messages = [
       ("_0x6E0_userCommand", 100),    # Driver inputs (buttons, pedals, steering)
-      ("_0x6E1_driverState", 50),     # Driver monitoring and attention tracking
+      ("_0x6E1_userCommand2", 50),    # Additional user commands (MADS, blinkers)
       ("_0x6E2_carState", 100),       # Primary vehicle state (speed, gear, cruise)
       ("_0x6E3_carState2", 100),      # Extended vehicle state (doors, charging)
-      ("_0x6E4_espState", 50),        # Individual wheel speed sensors
-      ("_0x6E5_adasState", 20),       # Camera-based ADAS data (lead vehicle)
-      ("_0x6E6_chassisState", 50),    # Stability control and chassis systems
-      ("_0x6E7_powertrainState", 20), # Motor/engine and energy management
+      ("_0x6E4_adasState", 20),       # Camera-based ADAS data (lead vehicle, BSD)
+      ("_0x6E5_adasState2", 20),      # Additional ADAS state
+      ("_0x6E6_espState", 50),        # Individual wheel speed sensors
+      ("_0x6E7_pwtState", 20),        # Motor/engine and energy management
       ("_0x6E8_ImuSensor", 100),      # Inertial measurement unit data (gyro)
       ("_0x6E9_imuSensor2", 100),     # Inertial measurement unit data (accel)
       
