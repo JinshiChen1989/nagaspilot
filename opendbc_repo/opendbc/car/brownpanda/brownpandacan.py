@@ -1,9 +1,25 @@
-import crcmod
 from cereal import car
 from opendbc.car import CanBusBase
+from opendbc.car.crc import CRC8J1850
 
-# Simple CRC8_J1850 for BrownPanda (following Hyundai pattern)
-brownpanda_crc8 = crcmod.mkCrcFun(0x11D, initCrc=0xFF, rev=False, xorOut=0x00)
+# BrownPanda CRC8 calculation using centralized J1850 implementation
+def brownpanda_crc8(data):
+  """Calculate CRC8_J1850 checksum for BrownPanda CAN messages
+
+  Uses the centralized CRC8J1850 lookup table from opendbc.car.crc
+  Following the same pattern as Chrysler implementation
+
+  Args:
+    data: bytes of CAN message data (7 bytes, excluding CRC field)
+
+  Returns:
+    int: CRC8 value (0-255)
+  """
+  crc = 0xFF  # J1850 standard init value
+  for i in range(len(data)):
+    crc ^= data[i]
+    crc = CRC8J1850[crc]
+  return crc
 
 
 class CanBus(CanBusBase):
@@ -48,7 +64,7 @@ def create_lat_command(packer, CAN: CanBusBase, CC, steering_angle: float, steer
     "counter": counter & 0xF,
   }
 
-  # Hyundai-style: pack, calculate CRC on first 7 bytes, repack
+  # Chrysler-style: pack, calculate CRC on message data, repack
   dat = packer.make_can_msg("_0x6EC_latCommand", CAN.pt, values)[1]
   values["CRC8_J1850"] = brownpanda_crc8(dat[:7])
   return packer.make_can_msg("_0x6EC_latCommand", CAN.pt, values)
